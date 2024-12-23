@@ -1,30 +1,24 @@
-#include <stdio.h>
-#include <math.h> 
+#include <vector>
+#include <iostream>
+#include <cmath>
 
-#define X 10000
-#define ALPHA 2
-#define C 4
+const long long ALPHA = 2; // tuning parameter
+const int C = 4;
+const int Q = 2 * 3 * 5 * 7; // product first C primes
+long long X, CBRTX, Z, ACBRTX;
 
-#define CBRTX 21 // approximate
-#define Z (CBRTX * CBRTX / ALPHA)  // approx
+std::vector<long long> mu_pmin, PRIMES, PRIME_COUNT;
+std::vector<int> PHI_C(Q+1);
 
-#define ACBRTX (ALPHA * CBRTX) // approx
-
-#define Q (2 * 3 * 5 * 7) // product first C primes
-
-long long mu_pmin[Z+1];
-long long PRIMES[Z+1];  // 1-indexed
-long long PRIME_COUNT[Z+1];
-int PHI_C[Q+1];
-long long pc = 0;  
-
-int sgn(long long x) {
+int sgn(long long x) 
+{
     return (x > 0) - (x < 0);
 }
 
 void mu_prime_sieve(void) 
 {
     long long i, j;
+    long long pc = 0;  
     for (i = 0; i <= Z; ++i) {
         mu_pmin[i] = 1;
         PRIME_COUNT[i] = 0;
@@ -55,7 +49,6 @@ void pre_phi_c(void)
 {
     int i, j; 
     // for the moment, PHI_C stores an indicator sieve
-    PHI_C[0] = 0; // not actually necessary
     
     for (i = 1; i <= Q; ++i) {
         PHI_C[i] = 1;
@@ -103,12 +96,12 @@ long long primecount(void)
     long long iacbrtx = exact_acbrt(X);
     long long isqrtx = exact_sqrt(X);
 
-        printf("%lld %lld\n", iacbrtx, isqrtx);
+    //printf("%lld %lld\n", iacbrtx, isqrtx);
 
     long long a = PRIME_COUNT[iacbrtx];
     long long a2 = PRIME_COUNT[isqrtx];
 
-    printf("a %lld a2 %lld\n", a, a2);
+    printf("a=%lld a2=%lld\n", a, a2);
 
     // phi2(x,a)
     long long P2 = (a * (a-1) / 2) - (a2 * (a2-1) / 2);
@@ -116,15 +109,30 @@ long long primecount(void)
     for (long long b = a + 1; b <= a2; ++b)
         P2 += PRIME_COUNT[X / PRIMES[b]];
 
-    printf("%lld \n", P2);
+    printf("P2=%lld \n", P2);
 
-    int x[a];
+    long long S0 = 1225;
 
-    return 0;
+    long long S = 165;
+
+
+    return S0 + S + a - P2 - 1;
 }
 
-int main(void) 
+int main() 
 {
+    X = 10000; // TODO user input
+
+    CBRTX = std::cbrt(X); // integer approx
+
+    Z = (CBRTX * CBRTX / ALPHA);  // approx
+
+    ACBRTX = (ALPHA * CBRTX); // approx
+
+    mu_pmin.resize(Z+1);
+    PRIMES.resize(Z+1);
+    PRIME_COUNT.resize(Z+1);
+    
     mu_prime_sieve();
     pre_phi_c();
 
