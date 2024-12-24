@@ -2,13 +2,13 @@
 
 #include <vector>
 #include <cstddef>
-
+#include <cstdint>
 
 struct fenwick_tree {
     size_t len; // 0-based len
-    std::vector<long long> t; // 1-based tree, indexes [1:len]
+    std::vector<int64_t> t; // 1-based tree, indexes [1:len]
 
-    fenwick_tree(std::vector<long long> const &a) 
+    fenwick_tree(std::vector<int64_t> const &a)
     {
         len = a.size();
         t.assign(len + 1, 0);
@@ -16,17 +16,17 @@ struct fenwick_tree {
             add_to(i, a[i]);
     }
 
-    long long sum_to(size_t r) 
+    int64_t sum_to(size_t r)
     {
-        long long s = 0;
+        int64_t s = 0;
         for (++r; r > 0; r -= r & -r)
             s += t[r];
         return s;
     }
 
-    void add_to(size_t i, long long delta) 
+    void add_to(size_t i, int64_t delta)
     {
         for (++i; i <= len; i += i & -i)
-            t[i] += delta;   
+            t[i] += delta;
     }
 };
