@@ -7,15 +7,14 @@
 using namespace std;
 
 // tuning parameters
-const int64_t ALPHA = 2; // tuning parameters
+const int64_t ALPHA = 40; // tuning parameters
 const int C = 7; // precompute phi_c table size (Q)
 
 // global constants
-int64_t X;      // Main value to compute phi(X) for
-int64_t Q;      // product of first C primes. phi_c table size 
-int64_t CBRTX;  // cbrt(X) (approx)
-int64_t ACBRTX; // alpha cbrt(X) (approx)
-int64_t Z;      // X^(2/3) / alpha (approx)
+int64_t X;       // Main value to compute phi(X) for
+int64_t Q;       // product of first C primes. phi_c table size 
+int64_t IACBRTX; // floor(alpha cbrt(X)) 
+int64_t Z;       // X^(2/3) / alpha (approx)
 
 // precomputed tables 
 vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,Z] (extra) 
@@ -30,7 +29,7 @@ int sgn(int64_t x)
 }
 
 // precompute PRIMES, PRIME_COUNT, and MU_PMIN with a standard sieve
-void mu_prime_sieve(void)
+void sieve_mu_prime(void)
 {
     // for larger values of X, need to subdivide the interval
     MU_PMIN.assign(Z+1, 1);     // init to 1s
@@ -38,26 +37,29 @@ void mu_prime_sieve(void)
     PRIME_COUNT.resize(Z+1);    // init values don't matter here
 
     int64_t i, j;
-    int64_t pc = 0;
-    
+    int64_t prime_counter = 0;
+
+    // sieve of Eratosthenes, modification to keep track of mu sign and pmin
     for (j = 2; j <= Z; ++j) {
-        if (MU_PMIN[j] == 1) {
+        if (MU_PMIN[j] == 1) { // unmarked, so it is prime
             for (i = j; i <= Z; i += j) {
                 MU_PMIN[i] = (MU_PMIN[i] == 1) ? -j : -MU_PMIN[i];
             }
         }
     }
 
+    // complete MU_PMIN, compute PRIMES and PRIME_COUNT
     for (j = 2; j <= Z; ++j) {
         if (MU_PMIN[j] == -j) { // prime
             PRIMES.push_back(j); 
-            ++pc;
+            ++prime_counter;
 
+            // mark multiples of p^2 as 0 for mu
             for (i = j*j; i <= Z; i += j*j)
                 MU_PMIN[i] = 0;
         }
 
-        PRIME_COUNT[j] = pc;
+        PRIME_COUNT[j] = prime_counter;
     }
 }
 
@@ -68,24 +70,17 @@ void pre_phi_c(void)
     for (int i = 1; i <= C; ++i)
         Q *= PRIMES[i];
 
-    PHI_C.resize(Q+1); // index up to Q inclusive
+    PHI_C.resize(Q+1, 1); // index up to Q inclusive
 
-    int i, j;
-    for (i = 1; i <= Q; ++i)
-        PHI_C[i] = 1; // indicator
-
-
-    for (i = 1; i <= C; ++i) {
-        int p = PRIMES[i]; // ith prime
-        for (j = p; j <= Q; j += p)
+    for (int i = 1; i <= C; ++i) {
+        int p = PRIMES[i]; // ith prime, mark multiples as 0
+        for (int64_t j = p; j <= Q; j += p)
             PHI_C[j] = 0;
     }
 
-    // accumulate
-    for (i = 1; i <= Q; ++i)
+    // accumulate from 2 onwards
+    for (int64_t i = 2; i <= Q; ++i)
         PHI_C[i] += PHI_C[i-1];
-
-
 }
 
 // precomputed phi(x,c)
@@ -96,7 +91,7 @@ int64_t phi_c(int64_t y)
 
 int64_t exact_acbrt(int64_t x)
 {
-    int64_t z = ALPHA * cbrt(x);
+    int64_t z = ALPHA * (int64_t) cbrt(x);
     for(++z; z*z*z > ALPHA * ALPHA * ALPHA * X; --z) ;
     return z;
 }
@@ -108,55 +103,40 @@ int64_t exact_sqrt(int64_t x)
     return z;
 }
 
-int64_t comb2(int64_t n)
-{
-    return n * (n-1) / 2;
-}
-
-int64_t sq(int64_t n) 
-{
-    return n * n;
-}
 
 int64_t primecount(void)
 {
-    if (X <= Z)
-        return PRIME_COUNT[X];
-
-    // exact floor of acbrtx
     int64_t iacbrtx = exact_acbrt(X);
     int64_t isqrtx = exact_sqrt(X);
-
-
     int64_t a = PRIME_COUNT[iacbrtx];
     int64_t a2 = PRIME_COUNT[isqrtx];
 
+    cout << "iacbrtx = " << iacbrtx << "\n";
     cout << "a = " << a << "\n";
 
     // phi2(x,a)
-    int64_t P2 = comb2(a) - comb2(a2);
-
+    // (a choose 2) - (a2 choose 2)
+    int64_t P2 = a*(a-1)/2 - a2*(a2-1)/2; 
+    
     for (int64_t b = a + 1; b <= a2; ++b) {
         P2 += PRIME_COUNT[X / PRIMES[b]];
     }
-
     cout << "P2 = " << P2 << "\n";
 
+    // contribution of ordinary leaves to phi(x,a)
     int64_t S0 = 0;
-
     for (int64_t n = 1; n <= iacbrtx; ++n) {
         // pmin(1) = +inf
         if (n == 1 || abs(MU_PMIN[n]) > PRIMES[C]) {
             S0 += sgn(MU_PMIN[n]) * phi_c(X / n);
         }
     }
-
     cout << "S0 = " << S0 << "\n";
 
-    // phi(x,a) Special leaves
-
+    // contribution of special leaves to phi(x,a)
+    int64_t S = 0;
+        
     // sieve out first C primes, only storing odd values (skipping p_1 = 2)
-
     vector<int64_t> sieve_ind(Z / 2, 1);
 
     for (int64_t i = 2; i <= C; ++i) {
@@ -166,7 +146,6 @@ int64_t primecount(void)
         }
     }
 
-    int64_t S = 0;
 
     // phi(y,b) = tree sum up to index (y-1)/2
     fenwick_tree dyn_sieve(sieve_ind);
@@ -221,7 +200,8 @@ int64_t primecount(void)
                         int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b+l])];
 
                         // step 4 
-                        if ((sq(PRIMES[d_+1]) <= X / pb1) || d_ <= b) {
+                        int64_t pd1 = PRIMES[d_+1];
+                        if ((pd1 * pd1 <= X / pb1) || d_ <= b) {
                             t = 1; // goto step 6
                         } else {
                             S2b += l * (d2b - d_);
@@ -252,8 +232,7 @@ int64_t primecount(void)
             S += S2b;
         }
 
-
-        // sieve out (odd) multiples of p_(b+1) for next step
+        // sieve out (odd) multiples of p_(b+1) for next iteration
         for (int64_t i = pb1; i < Z; i += 2*pb1) {
             if (sieve_ind[i/2]) {
                 dyn_sieve.add_to(i/2, -1);
@@ -271,22 +250,15 @@ int main()
 {
     X = 1e12; // TODO user input
 
-
-    CBRTX = cbrt(X); // integer approx
+    int64_t CBRTX = cbrt(X); // integer approx
     Z = (CBRTX * CBRTX / ALPHA);  // approx
-    ACBRTX = (ALPHA * CBRTX); // approx
 
     cout << "X = " << X << "\n";
-    cout << "acbrtx = " << ACBRTX << "\n";
-    cout << "Z = " << Z << "\n";
+    cout << "Z = " << Z << endl;
 
-
-
-    mu_prime_sieve();
-
+    sieve_mu_prime();
     pre_phi_c();
 
     int64_t pi = primecount();
-
     cout << pi << '\n';
 }
