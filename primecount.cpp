@@ -4,15 +4,24 @@
 
 #include "fenwick_tree.hpp"
 
-// global variables shared by all functions
-using namespace std; // whatever
+using namespace std;
 
-const int64_t ALPHA = 2; // tuning parameter
+// tuning parameters
+const int64_t ALPHA = 2; // tuning parameters
 const int C = 7; // precompute phi_c table size (Q)
 
-int64_t Q, X, CBRTX, Z, ACBRTX;
+// global constants
+int64_t X;      // Main value to compute phi(X) for
+int64_t Q;      // product of first C primes. phi_c table size 
+int64_t CBRTX;  // cbrt(X) (approx)
+int64_t ACBRTX; // alpha cbrt(X) (approx)
+int64_t Z;      // X^(2/3) / alpha (approx)
 
-vector<int64_t> MU_PMIN, PRIMES, PRIME_COUNT, PHI_C;
+// precomputed tables 
+vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,Z] (extra) 
+vector<int64_t> PRIMES;      // primes <= Z
+vector<int64_t> PRIME_COUNT; // pi(x) over [1,Z]  
+vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
 
 // signum: returns -1, 0, or 1
 int sgn(int64_t x)
@@ -23,13 +32,14 @@ int sgn(int64_t x)
 // precompute PRIMES, PRIME_COUNT, and MU_PMIN with a standard sieve
 void mu_prime_sieve(void)
 {
+    // for larger values of X, need to subdivide the interval
+    MU_PMIN.assign(Z+1, 1);     // init to 1s
+    PRIMES.push_back(1);        // p0 = 1 by convention
+    PRIME_COUNT.resize(Z+1);    // init values don't matter here
+
     int64_t i, j;
     int64_t pc = 0;
-    for (i = 0; i <= Z; ++i) {
-        MU_PMIN[i] = 1;
-        PRIME_COUNT[i] = 0;
-    }
-
+    
     for (j = 2; j <= Z; ++j) {
         if (MU_PMIN[j] == 1) {
             for (i = j; i <= Z; i += j) {
@@ -40,7 +50,7 @@ void mu_prime_sieve(void)
 
     for (j = 2; j <= Z; ++j) {
         if (MU_PMIN[j] == -j) { // prime
-            PRIMES[pc+1] = j; // 1-indexed
+            PRIMES.push_back(j); 
             ++pc;
 
             for (i = j*j; i <= Z; i += j*j)
@@ -53,11 +63,12 @@ void mu_prime_sieve(void)
 
 void pre_phi_c(void)
 {
+    // compute Q as product of first C primes
     Q = 1;
     for (int i = 1; i <= C; ++i)
         Q *= PRIMES[i];
 
-    PHI_C.resize(Q+1);
+    PHI_C.resize(Q+1); // index up to Q inclusive
 
     int i, j;
     for (i = 1; i <= Q; ++i)
@@ -261,7 +272,7 @@ int main()
     X = 1e12; // TODO user input
 
 
-    CBRTX = std::cbrt(X); // integer approx
+    CBRTX = cbrt(X); // integer approx
     Z = (CBRTX * CBRTX / ALPHA);  // approx
     ACBRTX = (ALPHA * CBRTX); // approx
 
@@ -269,11 +280,7 @@ int main()
     cout << "acbrtx = " << ACBRTX << "\n";
     cout << "Z = " << Z << "\n";
 
-    // stored for whole interval [1, z]
-    // for large values of X, need to subdivide the interval
-    MU_PMIN.resize(Z+1);
-    PRIMES.resize(Z+1);
-    PRIME_COUNT.resize(Z+1);
+
 
     mu_prime_sieve();
 
@@ -281,5 +288,5 @@ int main()
 
     int64_t pi = primecount();
 
-    std::cout << pi << '\n';
+    cout << pi << '\n';
 }
