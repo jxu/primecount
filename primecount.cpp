@@ -1,13 +1,14 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
+#include <cassert>
 
 #include "fenwick_tree.hpp"
 
 using namespace std;
 
 // tuning parameters
-const int64_t ALPHA = 40; // tuning parameters
+const double ALPHA = 40; // tuning parameter
 const int C = 7; // precompute phi_c table size (Q)
 
 // global constants
@@ -71,6 +72,7 @@ void pre_phi_c(void)
         Q *= PRIMES[i];
 
     PHI_C.resize(Q+1, 1); // index up to Q inclusive
+    PHI_C[0] = 0;
 
     for (int i = 1; i <= C; ++i) {
         int p = PRIMES[i]; // ith prime, mark multiples as 0
@@ -78,8 +80,8 @@ void pre_phi_c(void)
             PHI_C[j] = 0;
     }
 
-    // accumulate from 2 onwards
-    for (int64_t i = 2; i <= Q; ++i)
+    // accumulate
+    for (int64_t i = 1; i <= Q; ++i)
         PHI_C[i] += PHI_C[i-1];
 }
 
@@ -89,25 +91,23 @@ int64_t phi_c(int64_t y)
     return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
 }
 
-int64_t exact_acbrt(int64_t x)
+int64_t cube(int64_t n)
 {
-    int64_t z = ALPHA * (int64_t) cbrt(x);
-    for(++z; z*z*z > ALPHA * ALPHA * ALPHA * X; --z) ;
-    return z;
-}
-
-int64_t exact_sqrt(int64_t x)
-{
-    int64_t z = sqrt(x);
-    for (++z; z*z > x; --z) ;
-    return z;
+    return n * n * n;
 }
 
 
 int64_t primecount(void)
 {
-    int64_t iacbrtx = exact_acbrt(X);
-    int64_t isqrtx = exact_sqrt(X);
+    int64_t iacbrtx = ALPHA * cbrt(X);
+    int64_t isqrtx = sqrt(X);
+
+    // ensure floating point truncated values are exact floors
+    assert(cube(iacbrtx)  <= cube(ALPHA) * X &&
+           cube(iacbrtx+1) > cube(ALPHA) * X);
+    assert(isqrtx*isqrtx <= X && (isqrtx+1)*(isqrtx+1) > X);
+    
+    
     int64_t a = PRIME_COUNT[iacbrtx];
     int64_t a2 = PRIME_COUNT[isqrtx];
 
@@ -248,13 +248,14 @@ int64_t primecount(void)
 
 int main()
 {
-    X = 1e12; // TODO user input
-
-    int64_t CBRTX = cbrt(X); // integer approx
-    Z = (CBRTX * CBRTX / ALPHA);  // approx
+    X = 1e13; // TODO user input
+    Z = (cbrt(X) * cbrt(X) / ALPHA);  // approx
 
     cout << "X = " << X << "\n";
     cout << "Z = " << Z << endl;
+
+    // check alpha isn't set too large
+    assert(ALPHA <= pow(X, 1/6.));
 
     sieve_mu_prime();
     pre_phi_c();
