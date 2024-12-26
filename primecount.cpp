@@ -9,19 +9,18 @@ using namespace std;
 
 // tuning parameters
 const double ALPHA = 40; // tuning parameter
-const int C = 7; // precompute phi_c table size (Q)
+const int C = 7; // precompute phi_c parameter
 
 // global constants
 int64_t X;       // Main value to compute phi(X) for
-int64_t Q;       // product of first C primes. phi_c table size 
-int64_t IACBRTX; // floor(alpha cbrt(X)) 
+int32_t Q;       // phi_c table size, shouldn't be too large 
 int64_t Z;       // X^(2/3) / alpha (approx)
 
 // precomputed tables 
 vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,Z] (extra) 
 vector<int64_t> PRIMES;      // primes <= Z
 vector<int64_t> PRIME_COUNT; // pi(x) over [1,Z]  
-vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
+vector<int32_t> PHI_C;       // phi(x,c) over [1,Q]
 
 // signum: returns -1, 0, or 1
 int sgn(int64_t x)
@@ -76,12 +75,12 @@ void pre_phi_c(void)
 
     for (int i = 1; i <= C; ++i) {
         int p = PRIMES[i]; // ith prime, mark multiples as 0
-        for (int64_t j = p; j <= Q; j += p)
+        for (int32_t j = p; j <= Q; j += p)
             PHI_C[j] = 0;
     }
 
     // accumulate
-    for (int64_t i = 1; i <= Q; ++i)
+    for (int32_t i = 1; i <= Q; ++i)
         PHI_C[i] += PHI_C[i-1];
 }
 
