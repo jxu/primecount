@@ -245,12 +245,17 @@ int64_t primecount(void)
     return S0 + S + a - 1 - P2;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-    X = 1e13; // TODO user input
+    if (argc != 2) {
+        cerr << "Usage: ./primecount 1e12\n";
+        return 1;
+    }
+
+    X = atof(argv[1]); // read float from command line
     Z = (cbrt(X) * cbrt(X) / ALPHA);  // approx
 
-    cout << "X = " << X << "\n";
+    cout << "Computing for X = " << X << "\n";
     cout << "Z = " << Z << endl;
 
     // check alpha isn't set too large
