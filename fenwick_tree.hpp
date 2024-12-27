@@ -16,7 +16,7 @@ struct fenwick_tree {
             add_to(i, a[i]);
     }
 
-    int64_t sum_to(size_t r)
+    int64_t sum_to(size_t r) const
     {
         int64_t s = 0;
         for (++r; r > 0; r -= r & -r)
