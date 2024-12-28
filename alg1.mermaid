@@ -1,0 +1,14 @@
+flowchart TD
+1([Step 1: Set m1b = iacbrtx, S1b = 0, k = 1])--> 2
+2[Step 2: Remove the multiples of p1, ..., pb from Bk]-->3
+3{Step 3:<br>m1b pb1 <= acbrtx?}-->|Yes|T
+T([Terminate])
+3-->|No|4
+4["Step 4: Set y = x / (m1b pb1)"]-->4a
+4a{y >= zk?}-->|Yes|4y
+4a-->|No|5
+4y[Increment k]-->2
+5{"Step 5:<br>pmin(m1b) > pb1?"}-->|Yes|5y
+5-->|No|5n
+5y["Subtract mu(m1b)phi(y,b) from S1b"]-->5n
+5n[Decrement m1b]-->3

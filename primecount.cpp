@@ -8,9 +8,9 @@
 using namespace std;
 
 // tuning parameters
-const double ALPHA = 40;    // tuning parameter
-const int C = 7;            // precompute phi_c parameter
-//const int64_t BLOCK_SIZE = 1 << 24; // sieve block size
+const double ALPHA = 2;    // tuning parameter
+const int C = 4;            // precompute phi_c parameter
+const int64_t BS = 50; // sieve block size
 
 // global constants
 int64_t X;       // Main value to compute phi(X) for
@@ -131,21 +131,84 @@ int64_t S0_compute(void)
     return S0; 
 }
 
+// ceil(x/y) for positive integers
+int64_t ceil_div(int64_t x, int64_t y) 
+{
+    return x / y + (x % y > 0);
+}
+
 // Case 1 leaves: Algorithm 1
-int64_t S1b_compute(const int64_t b, const fenwick_tree& dyn_sieve) 
+int64_t S1b_compute(const int64_t b) 
 {
     int64_t pb1 = PRIMES[b+1];
+    int64_t m1b = IACBRTX;
     int64_t S1b = 0;
+    int64_t k = 1;
+    int64_t phi_prev = 0; 
 
-    for (int64_t m1b = IACBRTX; m1b * pb1 > IACBRTX; --m1b) {
-         if (abs(MU_PMIN[m1b]) > pb1) {
-            int64_t y = X / (m1b * pb1);
-            int64_t phi_b = dyn_sieve.sum_to((y-1) / 2);
+    cout << "b " << b << endl;
 
-            S1b -= sgn(MU_PMIN[m1b]) * phi_b;
-        }               
-    }    
-    return S1b;
+    while (true) {
+        alg1_step2: 
+        // remove p1, ..., pb from Bk = [z_{k-1}, z_k) = [B*(k-1)+1, B*k+1)
+        // multiples of j start from p * ceil(z_{k-1} / p)
+
+        vector<int64_t> Bk(BS, 1);
+        
+        int64_t zk1 = BS*(k-1) + 1;
+        int64_t zk = BS*k + 1;
+
+        for (int64_t i = 1; i <= b; ++i) {
+            int64_t p = PRIMES[i];
+
+            for (int64_t j = p * ceil_div(zk1, p); j < zk; j += p) {
+                Bk[j-zk1] = 0;
+            }
+        }
+
+        cout << "Bk [" << zk1 << "," << zk << ")\n";
+        for (auto x : Bk) 
+            cout << x;
+        cout << endl;
+
+        alg1_step3:
+        if (m1b * pb1 <= IACBRTX) return S1b;
+
+        alg1_step4:
+        int64_t y = X / (m1b * pb1); 
+
+
+        if (y >= zk) {
+            ++k; 
+
+            // TODO replace with tree sum
+            for (int64_t i = 0; i < BS; ++i) {
+                if (Bk[i]) ++phi_prev;
+            }
+
+            cout << "new k " << k << " phi_prev " << phi_prev << endl;
+
+            goto alg1_step2;
+        }
+
+        alg1_step5:
+
+        if (abs(MU_PMIN[m1b]) > pb1) {
+            int64_t phi_yb = phi_prev;
+
+            // TODO replace with tree sum
+            for (int64_t i = 0; i <= y-zk1; ++i) {
+                if (Bk[i]) ++phi_yb;
+            }
+
+            S1b -= sgn(MU_PMIN[m1b]) * phi_yb;
+        }
+
+        --m1b;
+        goto alg1_step3;
+         
+    }
+
 }
 
 // Case 2 leaves: Algorithm 2 hell
@@ -247,7 +310,7 @@ int64_t primecount(void)
         int64_t pb1 = PRIMES[b+1];
 
         if (pb1*pb1 <= IACBRTX) {
-            S += S1b_compute(b, dyn_sieve);
+            S += S1b_compute(b);
         } else {
             S += S2b_compute(a, b, dyn_sieve);
         }
