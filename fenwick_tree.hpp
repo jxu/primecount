@@ -1,3 +1,5 @@
+// Credit: cp-algorithms (Jakob Kobler), e-maxx.ru (Maxim Ivanov)
+
 #pragma once
 
 #include <vector>
@@ -16,6 +18,7 @@ struct fenwick_tree {
             add_to(i, a[i]);
     }
 
+    // 0-based input
     int64_t sum_to(size_t r) const
     {
         int64_t s = 0;
@@ -24,6 +27,7 @@ struct fenwick_tree {
         return s;
     }
 
+    // 0-based input
     void add_to(size_t i, int64_t delta)
     {
         for (++i; i <= len; i += i & -i)
