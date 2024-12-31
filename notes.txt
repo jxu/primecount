@@ -20,6 +20,9 @@ S2b 5
 S = 918
 1229
 
+S1 total 466
+S2 total 452
+
 X = 1e6
 sieve up to 10000
 100 1000

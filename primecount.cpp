@@ -45,30 +45,30 @@ int sgn(int64_t x)
 void sieve_mu_prime(void)
 {
     // for larger values of X, need to subdivide the interval
-    MU_PMIN.assign(Z+1, 1);     // init to 1s
+    MU_PMIN.assign(ISQRTX+1, 1);     // init to 1s
     PRIMES.push_back(1);        // p0 = 1 by convention
-    PRIME_COUNT.resize(Z+1);    // init values don't matter here
+    PRIME_COUNT.resize(ISQRTX+1);    // init values don't matter here
 
     int64_t i, j;
     int64_t prime_counter = 0;
 
     // sieve of Eratosthenes, modification to keep track of mu sign and pmin
-    for (j = 2; j <= Z; ++j) {
+    for (j = 2; j <= ISQRTX; ++j) {
         if (MU_PMIN[j] == 1) { // unmarked, so it is prime
-            for (i = j; i <= Z; i += j) {
+            for (i = j; i <= ISQRTX; i += j) {
                 MU_PMIN[i] = (MU_PMIN[i] == 1) ? -j : -MU_PMIN[i];
             }
         }
     }
 
     // complete MU_PMIN, compute PRIMES and PRIME_COUNT
-    for (j = 2; j <= Z; ++j) {
+    for (j = 2; j <= ISQRTX; ++j) {
         if (MU_PMIN[j] == -j) { // prime
             PRIMES.push_back(j); 
             ++prime_counter;
 
             // mark multiples of p^2 as 0 for mu
-            for (i = j*j; i <= Z; i += j*j)
+            for (i = j*j; i <= ISQRTX; i += j*j)
                 MU_PMIN[i] = 0;
         }
 
@@ -146,74 +146,6 @@ int64_t ceil_div(int64_t x, int64_t y)
 
 
 
-// Case 2 leaves: Algorithm 2 hell
-// TODO: a should be global?
-int64_t S2b_compute(const int64_t a, 
-                    const int64_t b, 
-                    const fenwick_tree& dyn_sieve) 
-{
-    int64_t pb1 = PRIMES[b+1];
-    int64_t xpb12 = X / (pb1*pb1);
-
-    // number of trivial leaves is a + 1 - tb
-    int64_t tb;
-
-    if (xpb12 <= pb1) {
-        tb = b + 2;
-    } else if (xpb12 < IACBRTX) {
-        tb = PRIME_COUNT[xpb12] + 1;    
-    } else {
-        tb = a + 1;
-    }
-
-    // step 1
-    int64_t d2b = tb - 1; // largest d not considered yet
-    int64_t S2b = a - d2b;
-    char t = 0;
-
-    while (d2b > b + 1) { // step 2
-        int64_t y = X / (pb1 * PRIMES[d2b]);
-
-        if (t == 0) { // step 3, clustered easy leaves
-            if (y >= IACBRTX) {
-                t = 2;
-            } else {
-                int64_t l = PRIME_COUNT[y] - b + 1;
-                int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b+l])];
-
-                // step 4 
-                int64_t pd1 = PRIMES[d_+1];
-                if ((pd1 * pd1 <= X / pb1) || d_ <= b) {
-                    t = 1; // goto step 6
-                } else {
-                    S2b += l * (d2b - d_);
-                    d2b = d_;
-                    continue; // goto 2
-                }
-            }
-        }
-
-        if (t == 1) { // step 5, sparse easy leaves
-            if (y >= IACBRTX) {
-                t = 2;
-            } else {
-                int64_t l = PRIME_COUNT[y] - b + 1;
-                // step 6
-                S2b += l;
-                d2b -= 1;
-                continue; // goto 2
-            }
-        } 
-
-        if (t == 2) { // steps 7-9, hard leaves
-            S2b += dyn_sieve.sum_to((y-1)/2);
-            d2b -= 1;
-        }
-    }
-
-    return S2b;
-}
-
 int64_t primecount(void)
 {
 
@@ -221,7 +153,15 @@ int64_t primecount(void)
 
     cout << "a = " << a << "\n";
 
-    int64_t P2 = phi2_compute();
+    // TODO: compute v on the way instead of sieving to sqrt x
+    int64_t v = PRIME_COUNT[ISQRTX];
+
+    // phi2
+    int64_t P2 = a*(a-1)/2 - v*(v-1)/2;
+
+
+
+
     int64_t S0 = S0_compute();
 
     // contribution of special leaves to phi(x,a)
@@ -241,10 +181,11 @@ int64_t primecount(void)
     
     //vector<int64_t> m1(astar, IACBRTX);
     vector<int64_t> S1(astar, 0);
+    vector<int64_t> S2(a, 0);
 
     // save phi values for summing
-    // phi_save(b) = phi(z_{k-1}-1, b) from last block up to z_{k-1}
-    vector<int64_t> phi_save(astar, 0);
+    // phi_save(k, b) = phi(z_k - 1, b) from last block
+    vector<int64_t> phi_save(a+1, 0);
 
     // For each interval Bk = [z_{k-1}, z_k)
     int64_t zk; 
@@ -274,10 +215,11 @@ int64_t primecount(void)
 
 
         // alg1 for each b...
-        for (int64_t b = C; b < astar; ++b) {
+        for (int64_t b = C; b <= a; ++b) {
             cout << "b " << b << endl;
 
             // print block
+            /*
             for (auto x : Bk) cout << x;
             cout << endl;
 
@@ -288,56 +230,100 @@ int64_t primecount(void)
 
 
             cout << "phi_save " << phi_save[b] << endl;
+            */
             
             int64_t pb1 = PRIMES[b+1];
 
-            // m decreasing
-            for (int64_t m = IACBRTX; m * pb1 > IACBRTX; --m) {
+            // S1
+            if (b < astar) {
+                // m decreasing
+                for (int64_t m = IACBRTX; m * pb1 > IACBRTX; --m) {
 
-                int64_t y = X / (m * pb1); 
+                    int64_t y = X / (m * pb1); 
 
-                if (y < zk1 || y >= zk) {
-                    continue;
+                    if (y < zk1 || y >= zk) 
+                        continue;
+                    
+                    
+                    if (abs(MU_PMIN[m]) > pb1) {
+                    
+                        int64_t phi_yb = phi_save[b] + phi_block.sum_to(y-zk1);
+                        //cout << "y" << y << " phi_block sumto" << phi_block.sum_to(y-zk1) <<  
+                        //" phi_yb " << phi_yb << endl;
+
+                        S1[b] -= sgn(MU_PMIN[m]) * phi_yb;
+                    }
+                                                
                 }
-                
-                if (abs(MU_PMIN[m]) > pb1) {
-                
-                    int64_t phi_yb = phi_save[b] + phi_block.sum_to(y-zk1);
-                    cout << "y" << y << " phi_block sumto" << phi_block.sum_to(y-zk1) <<  
-                    " phi_yb " << phi_yb << endl;
+            } else if (b < a - 1) { // S2, b in [astar, a-1)
+                for (int64_t d = a; d > b + 1; --d) {
 
-                    S1[b] -= sgn(MU_PMIN[m]) * phi_yb;
+                    int64_t y = X / (pb1 * PRIMES[d]);
+
+                    if (y < zk1 || y >= zk) 
+                        continue;
+
+                    S2[b] += phi_save[b] + phi_block.sum_to(y-zk1);
+
+                    
                 }
-                                            
+
+
+            }
+
+            if (b == a) {
+                // sieved out first a primes
+
+                // renamed b to d here
+                for (int64_t d = a + 1; d <= v; ++d) {
+                    // pi(x / pd)
+                    int64_t y = X / PRIMES[d];
+                    if (zk1 <= y && y < zk) {
+                        int64_t phi = phi_save[a] + phi_block.sum_to(y - zk1); 
+                        int64_t pi = phi + a - 1;
+                        P2 += pi;
+                    }
+                }     
+         
             }
 
             // for next block k
             phi_save[b] += phi_block.sum_to(BS-1); 
 
-            // sieve out pb1 for this block for next b 
-
+        
+            // sieve out p_{b+1} for this block for next b 
             for (int64_t j = pb1 * ceil_div(zk1, pb1); j < zk; j += pb1) {
                 if (Bk[j-zk1]) { // not marked yet
                     phi_block.add_to(j-zk1, -1);
                     Bk[j-zk1] = 0;
                 }
+                
+            }    
 
-            }       
-            
-        }
-  
+        }      
+ 
     }
+
 
     // accumulate final results
 
-    int64_t S1_total = 0;
+    int64_t S1_total = 0, S2_total = 0;
     for (int64_t b = C; b < astar; ++b) {
         S1_total += S1[b];
 
     }
 
+    for (auto x : S2) {
+        S2_total += x;
+    }
 
-    S += S1_total;
+    cout << "P2 = " << P2 << "\n";
+
+
+    cout << "S1 total " << S1_total << endl;
+    cout << "S2 total " << S2_total << endl;
+
+    S = S1_total + S2_total;
 
     cout << "S = " << S << "\n";
 
