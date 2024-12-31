@@ -31,3 +31,21 @@ S1total 60491
 25 42286 24853 95907
 78498
 
+
+
+g++ -O3 -Wall -Wextra -o primecount primecount.cpp  && time ./primecount 1e12
+
+
+Computing for X = 1000000000000
+Z = 10000000
+IACBRTX = 100000
+a = 9592
+S0 = 2832160391
+a* = 65
+P2 = 10069871249
+S1 total 27670263765
+S2 total 17175349520
+S = 44845613285
+37607912018
+
+

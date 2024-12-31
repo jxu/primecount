@@ -13,9 +13,9 @@ const double ALPHA = 1;
 const int C = 1;            
 const int64_t BS = 50; 
 #else
-const double ALPHA = 2;    // tuning parameter
+const double ALPHA = 8;    // tuning parameter
 const int C = 7;            // precompute phi_c parameter
-const int64_t BS = 1 << 16; // sieve block size
+const int64_t BS = 1 << 24; // sieve block size
 #endif
 
 // global constants
@@ -241,8 +241,10 @@ int64_t primecount(void)
 
                     int64_t y = X / (m * pb1); 
 
-                    if (y < zk1 || y >= zk) 
+                    if (y < zk1) 
                         continue;
+
+                    if (y >= zk) break;
                     
                     
                     if (abs(MU_PMIN[m]) > pb1) {
@@ -260,8 +262,10 @@ int64_t primecount(void)
 
                     int64_t y = X / (pb1 * PRIMES[d]);
 
-                    if (y < zk1 || y >= zk) 
+                    if (y < zk1) 
                         continue;
+
+                    if (y >= zk) break;
 
                     S2[b] += phi_save[b] + phi_block.sum_to(y-zk1);
 
@@ -275,9 +279,12 @@ int64_t primecount(void)
                 // sieved out first a primes
 
                 // renamed b to d here
-                for (int64_t d = a + 1; d <= v; ++d) {
+                for (int64_t d = v; d >= a + 1; --d) {
                     // pi(x / pd)
                     int64_t y = X / PRIMES[d];
+
+                    if (y >= zk) break;
+                    
                     if (zk1 <= y && y < zk) {
                         int64_t phi = phi_save[a] + phi_block.sum_to(y - zk1); 
                         int64_t pi = phi + a - 1;
