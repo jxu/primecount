@@ -15,7 +15,7 @@ const int64_t BS = 50;
 #else
 const double ALPHA = 8;    // tuning parameter
 const int C = 7;            // precompute phi_c parameter
-const int64_t BS = 1 << 24; // sieve block size
+const int64_t BS = 1 << 20; // sieve block size
 #endif
 
 // global constants
@@ -150,8 +150,6 @@ int64_t primecount(void)
     // phi2
     int64_t P2 = a*(a-1)/2 - v*(v-1)/2;
 
-
-
     int64_t S0 = S0_compute();
 
     // contribution of special leaves to phi(x,a)
@@ -242,26 +240,54 @@ int64_t primecount(void)
 
                 }
             }
-            else if (b < a - 1)     // S2, b in [astar, a-1)
+
+            // S2, b in [astar, a-1)
+            else if (b < a - 1)     
             {
+                // d decreasing
                 for (int64_t d = a; d > b + 1; --d)
-                {
-                    int64_t y = X / (pb1 * PRIMES[d]);
+                {   
+                    int64_t pd = PRIMES[d];
+
+                    int64_t y = X / (pb1 * pd);
 
                     if (y < zk1) continue;
                     if (y >= zk) break;
 
-                    S2 += phi_save[b] + phi_block.sum_to(y-zk1);
+                    int64_t phi_yb;
+
+                    // shortcuts 
+                    assert(ALPHA > 1);
+
+                    // trivial leaves
+                    if (max(X / (pb1*pb1), pb1) < pd && pd <= IACBRTX) 
+                    {
+                        phi_yb = 1;
+                    }
+                    // easy leaves
+                    else if (max(Z / pb1, pb1) < pd && 
+                        pd <= min(X / (pb1*pb1), IACBRTX))
+                    {
+                        // condition (13) guarantees y <= alpha cbrtx
+                        phi_yb = PRIME_COUNT[y] - b + 1;
+                    }
+
+                    // hard leaves
+                    else 
+                    {
+                        phi_yb = phi_save[b] + phi_block.sum_to(y-zk1);
+                    }
+
+                    S2 += phi_yb;
                 }
             }
 
+            // phi2, sieved out first a primes 
             if (b == a)
             {
-                // sieved out first a primes
                 // renamed b to d here
                 for (int64_t d = v; d >= a + 1; --d)
                 {
-                    // pi(x / pd)
                     int64_t y = X / PRIMES[d];
 
                     if (y >= zk) break;
@@ -269,8 +295,7 @@ int64_t primecount(void)
                     if (zk1 <= y && y < zk)
                     {
                         int64_t phi = phi_save[a] + phi_block.sum_to(y - zk1);
-                        int64_t pi = phi + a - 1;
-                        P2 += pi;
+                        P2 += phi;
                     }
                 }
 
@@ -297,7 +322,7 @@ int64_t primecount(void)
 
     cout << "P2 = " << P2 << "\n";
     cout << "S1 = " << S1 << endl;
-    cout << "S2 =  " << S2 << endl;
+    cout << "S2 = " << S2 << endl;
 
     return S0 + S1 + S2 + a - 1 - P2;
 }
