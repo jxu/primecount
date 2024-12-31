@@ -6,7 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
-struct fenwick_tree {
+struct fenwick_tree
+{
     size_t len; // 0-based len
     std::vector<int64_t> t; // 1-based tree, indexes [1:len]
 
