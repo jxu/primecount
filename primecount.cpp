@@ -13,9 +13,9 @@ const double ALPHA = 1;
 const int C = 1;            
 const int64_t BS = 50; 
 #else
-const double ALPHA = 40;    // tuning parameter
+const double ALPHA = 2;    // tuning parameter
 const int C = 7;            // precompute phi_c parameter
-const int64_t BS = 1 << 10; // sieve block size
+const int64_t BS = 1 << 16; // sieve block size
 #endif
 
 // global constants
@@ -167,7 +167,7 @@ int64_t primecount(void)
     // contribution of special leaves to phi(x,a)
     int64_t S = 0;
            
-    int64_t astar = C;
+    int64_t astar = 1;
     while(PRIMES[astar+1] * PRIMES[astar+1] <= IACBRTX) 
         ++astar;
 
@@ -188,12 +188,13 @@ int64_t primecount(void)
     vector<int64_t> phi_save(a+1, 0);
 
     // For each interval Bk = [z_{k-1}, z_k)
-    int64_t zk; 
-    for (int64_t k = 1; (zk = BS*k+1) <= Z; ++k) {
 
+    for (int64_t k = 1; ; ++k) {
+        int64_t zk = BS*k + 1;
         int64_t zk1 = BS*(k-1) + 1;
+        if (zk1 > Z) break;
 
-        cout << "block [" << zk1 << "," << zk << ")\n";
+        //cout << "block [" << zk1 << "," << zk << ")\n";
 
         // init block tree
         vector<int64_t> Bk(BS, 1);
@@ -216,10 +217,11 @@ int64_t primecount(void)
 
         // alg1 for each b...
         for (int64_t b = C; b <= a; ++b) {
-            cout << "b " << b << endl;
+            //cout << "b " << b << endl;
 
-            // print block
             /*
+            // print block
+            
             for (auto x : Bk) cout << x;
             cout << endl;
 
@@ -227,10 +229,8 @@ int64_t primecount(void)
                 cout << phi_block.sum_to(i) << " ";
             }
             cout << endl;
-
-
-            cout << "phi_save " << phi_save[b] << endl;
             */
+            
             
             int64_t pb1 = PRIMES[b+1];
 
@@ -289,6 +289,9 @@ int64_t primecount(void)
 
             // for next block k
             phi_save[b] += phi_block.sum_to(BS-1); 
+            
+
+            //cout << "phi_save " << phi_save[b] << endl;
 
         
             // sieve out p_{b+1} for this block for next b 
