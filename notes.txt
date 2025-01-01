@@ -32,6 +32,7 @@ S1total 60491
 78498
 
 
+g++ -O3 -Wall -Wextra -D_GLIBCXX_DEBUG -DDEBUG -o primecount primecount.cpp  && ./primecount 1e4
 
 g++ -O3 -Wall -Wextra -o primecount primecount.cpp  && time ./primecount 1e12
 
