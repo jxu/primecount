@@ -208,6 +208,7 @@ int64_t primecount(void)
         fenwick_tree phi_block(Bk);
 
         // sieve out first C primes in block
+        /*
         for (int64_t i = 1; i <= C; ++i)
         {
             int64_t p = PRIMES[i];
@@ -221,10 +222,11 @@ int64_t primecount(void)
                 }
             }
         }
-
+        */
 
         // alg1 for each b...
-        for (int64_t b = C; b <= a; ++b)
+        // start at 0 to sieve out first C primes
+        for (int64_t b = 0; b <= a; ++b)
         {
             //cout << "b " << b << endl;
 
@@ -245,7 +247,7 @@ int64_t primecount(void)
 
 
             // S1
-            if (b < astar)
+            if (C <= b && b < astar)
             {
                 // m decreasing
                 for (int64_t m = IACBRTX; m * pb1 > IACBRTX; --m)
@@ -266,7 +268,7 @@ int64_t primecount(void)
             }
 
             // S2, b in [astar, a-1)
-            else if (b < a - 1)     
+            else if (astar <= b && b < a - 1)     
             {
 
                 // d decreasing
