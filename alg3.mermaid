@@ -1,0 +1,16 @@
+flowchart TD
+1(["Step 1: Set phi2 = a(a-1)/2, u = isqrtx, v = a, w = u+1, k = 1"])--> 2
+2[Step 2: Remove the multiples of p1, ..., pb from Bk]-->3
+3{Step 3: u <= acbrtx?}-->|Yes|T
+T(["Subtract v(v-1)/2 from phi2 and terminate"])
+3-->|No|4
+4{Step 4: u < w?}-->|Yes|4y
+4y["Set w = max(2, u - iacbrtx) and sieve completely [w, u]"]-->5
+4-->|No|5
+5{Step 5: Using the sieve,<br>is u prime?}-->|No|5n
+5n[Decrement u]-->3
+5-->|Yes|6
+6{Step 6:<br>Set y = x/u. y >= zk?}-->|Yes|6y
+6y[Increase k]-->2
+6-->|No|7
+7["Add phi(y,a)-a+1 to phi2, increment v, decrement u"]-->3

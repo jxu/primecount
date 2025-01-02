@@ -15,11 +15,11 @@ const int64_t BS    = 50;
 #else
 const double  ALPHA = 10;      // tuning parameter
 const int64_t C     = 7;       // precompute phi_c parameter
-const int64_t BS    = 1 << 20; // sieve block size
+const int64_t BS    = 1 << 24; // sieve block size
 #endif
 
 // global constants
-int64_t X;       // Main value to compute phi(X) for
+int64_t X;       // Main value to compute pi(X) for
 int64_t Q;       // phi_c table size, shouldn't be too large
 int64_t Z;       // X^(2/3) / alpha (approx)
 int64_t ISQRTX;  // floor(sqrt(X))
@@ -27,9 +27,9 @@ int64_t IACBRTX; // floor(alpha cbrt(X))
 int64_t a;       // pi(alpha cbrt(X))
 
 // precomputed tables
-vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,Z] 
-vector<int64_t> PRIMES;      // primes <= Z TODO
-vector<int64_t> PRIME_COUNT; // pi(x) over [1,Z] TODO
+vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,acbrtx] 
+vector<int64_t> PRIMES;      // primes <= acbrtx
+vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx] 
 vector<int32_t> PHI_C;       // phi(x,c) over [1,Q]
 
 // signum: returns -1, 0, or 1
@@ -38,27 +38,24 @@ int sgn(int64_t x)
     return (x > 0) - (x < 0);
 }
 
-// precompute PRIMES, PRIME_COUNT, and MU_PMIN with a standard sieve
-// PRIME_COUNT up to sqrt(X) can be computed with a segmented sieve,
-// and MU_PMIN only needs values up to IACBRTX, but it's easier/faster to
-// store [1,sqrt(X)] directly
+// precompute PRIMES, PRIME_COUNT, and MU_PMIN with a standard sieve to acbrtx
 void sieve_mu_prime(void)
 {
     // for larger values of X, need to subdivide the interval
-    MU_PMIN.assign(ISQRTX+1, 1);     // init to 1s
+    MU_PMIN.assign(IACBRTX+1, 1);     // init to 1s
     MU_PMIN[1] = 1000;               // define pmin(1) = +inf
     PRIMES.push_back(1);             // p0 = 1 by convention
-    PRIME_COUNT.resize(ISQRTX+1);    // init values don't matter here
+    PRIME_COUNT.resize(IACBRTX+1);    // init values don't matter here
 
     int64_t i, j;
     int64_t prime_counter = 0;
 
     // sieve of Eratosthenes, modification to keep track of mu sign and pmin
-    for (j = 2; j <= ISQRTX; ++j)
+    for (j = 2; j <= IACBRTX; ++j)
     {
         if (MU_PMIN[j] == 1)   // unmarked, so it is prime
         {
-            for (i = j; i <= ISQRTX; i += j)
+            for (i = j; i <= IACBRTX; i += j)
             {
                 MU_PMIN[i] = (MU_PMIN[i] == 1) ? -j : -MU_PMIN[i];
             }
@@ -66,7 +63,7 @@ void sieve_mu_prime(void)
     }
 
     // complete MU_PMIN, compute PRIMES and PRIME_COUNT
-    for (j = 2; j <= ISQRTX; ++j)
+    for (j = 2; j <= IACBRTX; ++j)
     {
         if (MU_PMIN[j] == -j)   // prime
         {
@@ -74,7 +71,7 @@ void sieve_mu_prime(void)
             ++prime_counter;
 
             // mark multiples of p^2 as 0 for mu
-            for (i = j*j; i <= ISQRTX; i += j*j)
+            for (i = j*j; i <= IACBRTX; i += j*j)
                 MU_PMIN[i] = 0;
         }
 
@@ -137,12 +134,6 @@ int64_t ceil_div(int64_t x, int64_t y)
 
 int64_t primecount(void)
 {
-    // TODO: compute v on the way instead of sieving to sqrt x
-    int64_t v = PRIME_COUNT[ISQRTX];
-
-    // phi2
-    int64_t P2 = a*(a-1)/2 - v*(v-1)/2;
-
     // Init
     int64_t S1 = 0, S2 = 0;
     int64_t S0 = S0_compute();
@@ -155,6 +146,13 @@ int64_t primecount(void)
 
     cout << "a* = " << astar << endl;
 
+    // phi2
+    int64_t P2 = a * (a - 1) / 2;
+    int64_t u = ISQRTX;
+    int64_t v = a; 
+    int64_t w = u + 1;
+    vector<bool> aux;
+    bool phi2_done = false;
 
     // save phi values for summing
     // phi_save(k, b) = phi(z_k - 1, b) from last block
@@ -175,13 +173,25 @@ int64_t primecount(void)
 
         // alg1 for each b...
         // start at 0 to sieve out first C primes
-        for (int64_t b = 0; b <= a; ++b)
+        for (int64_t b = 1; b <= a; ++b)
         {
-            int64_t pb1 = PRIMES[b+1];
+            //cout << "b " << b << endl;
+            int64_t pb = PRIMES[b];
 
+            // sieve out p_b for this block
+            for (int64_t j = pb * ceil_div(zk1, pb); j < zk; j += pb)
+            {
+                if (Bk[j-zk1])   // not marked yet
+                {
+                    phi_block.add_to(j-zk1, -1);
+                    Bk[j-zk1] = 0;
+                }
+            }
+            
             // S1 leaves
             if (C <= b && b < astar)
             {
+                int64_t pb1 = PRIMES[b+1];
                 // m decreasing
                 for (int64_t m = IACBRTX; m * pb1 > IACBRTX; --m)
                 {
@@ -201,6 +211,8 @@ int64_t primecount(void)
             // S2, b in [astar, a-1)
             else if (astar <= b && b < a - 1)     
             {
+                int64_t pb1 = PRIMES[b+1];
+                // TODO: more efficient decrement
                 // d decreasing
                 for (int64_t d = a; d > b + 1; --d)
                 {   
@@ -239,38 +251,66 @@ int64_t primecount(void)
             }
 
             // phi2, sieved out first a primes 
-            else if (b == a)
+            else if (b == a && !phi2_done)
             {
-                // renamed b in (3) to d here
-                for (int64_t d = v; d >= a + 1; --d)
+                while (true)
                 {
-                    int64_t y = X / PRIMES[d];
-
-                    if (y >= zk) break;
-
-                    if (zk1 <= y)
+                    //alg3_step3:
+                    
+                    if (u <= IACBRTX) 
                     {
-                        int64_t phi = phi_save[a] + phi_block.sum_to(y - zk1);
-                        P2 += phi + a - 1; // pi(x / pb)
+                        P2 -= v * (v - 1) / 2;
+                        phi2_done = true;
+                        goto alg3_exit; // rewrite as return phi2_done?
                     }
-                }
 
+                    if (u < w)
+                    {
+                        // new aux sieve [w,u] of size IACBRTX+1
+                        w = max((int64_t)2, u - IACBRTX);
+                        aux.assign(u - w + 1, true);
+
+                        // TODO: more efficient sieve
+                        for (int64_t p : PRIMES) 
+                        {
+                            if (p < 2) continue;
+                            for (int64_t j = 2*p; j <= u; j += p)
+                            {
+                                if (j < w) continue;
+                                aux[j-w] = false;
+                            }
+                        }
+                    }
+
+                    // check u to track largest pb not considered yet
+                    // v counts primes up to sqrt(x)
+                    if (!aux[u-w]) // not prime
+                    {
+                        --u;
+                    }
+                    else
+                    {
+                        int64_t y = X / u;
+
+                        if (y >= zk) 
+                            goto alg3_exit;
+
+                        // phi(y,a)
+                        int64_t phi = phi_save[a] + phi_block.sum_to(y-zk1);
+                        P2 += phi + a - 1;
+                        ++v;
+                        --u;
+                    }                  
+                }
             }
+
+            alg3_exit:
 
             // for next block k
             phi_save[b] += phi_block.sum_to(BS-1);
 
             //cout << "phi_save " << phi_save[b] << endl;
 
-            // sieve out p_{b+1} for this block for next b
-            for (int64_t j = pb1 * ceil_div(zk1, pb1); j < zk; j += pb1)
-            {
-                if (Bk[j-zk1])   // not marked yet
-                {
-                    phi_block.add_to(j-zk1, -1);
-                    Bk[j-zk1] = 0;
-                }
-            }
         }
     }
 
@@ -311,6 +351,7 @@ int main(int argc, char* argv[])
     cout << "Computing for X = " << X << endl;
     cout << "Z = " << Z << endl;
     cout << "IACBRTX = " << IACBRTX << endl;
+    cout << "ISQRTX = " << ISQRTX << endl;
 
     
     sieve_mu_prime();
