@@ -132,6 +132,66 @@ int64_t ceil_div(int64_t x, int64_t y)
     return x / y + (x % y > 0);
 }
 
+
+struct Phi2Info
+{
+    int64_t P2; // phi2 
+    int64_t u; // largest p_b not considered yet
+    int64_t v; // count number of primes up to sqrt(x)
+    int64_t w; // track first integer represented in aux
+    vector<bool> aux; // auxiliary sieve to track primes found up to sqrt(x)
+    bool done; // flag for not accidentally running when terminated
+
+    // computation of phi2(x,a)
+    void alg3(int64_t zk1, 
+              int64_t zk, 
+              const vector<int64_t>& phi_save, 
+              const fenwick_tree& phi_block)
+    {
+        // step 3 loop (u decrement steps moved here)
+        for (; u > IACBRTX; --u)
+        {
+            if (u < w)
+            {
+                // new aux sieve [w,u] of size IACBRTX+1
+                w = max((int64_t)2, u - IACBRTX);
+                aux.assign(u - w + 1, true);
+
+                // TODO: more efficient sieve
+                // only need to sieve values starting at p*p within [w,u]
+                for (int64_t p : PRIMES) 
+                {
+                    if (p < 2) continue;
+                    for (int64_t j = 2*p; j <= u; j += p)
+                    {
+                        if (j < w) continue;
+                        aux[j-w] = false;
+                    }
+                }
+            }
+
+            // check u to track largest pb not considered yet
+            if (aux[u-w]) // prime
+            {
+                int64_t y = X / u;
+
+                if (y >= zk) 
+                    return;
+
+                // phi(y,a)
+                int64_t phi = phi_save[a] + phi_block.sum_to(y-zk1);
+                P2 += phi + a - 1;
+                ++v; // count new prime
+            }                  
+        }
+
+        // step 3 terminate
+        P2 -= v * (v - 1) / 2;
+        done = true;
+        return;
+    }
+};
+
 int64_t primecount(void)
 {
     // Init
@@ -146,13 +206,15 @@ int64_t primecount(void)
 
     cout << "a* = " << astar << endl;
 
-    // phi2
-    int64_t P2 = a * (a - 1) / 2;
-    int64_t u = ISQRTX;
-    int64_t v = a; 
-    int64_t w = u + 1;
-    vector<bool> aux;
-    bool phi2_done = false;
+    // init variables used in phi2(x,a) computation
+    struct Phi2Info phi2_info;
+    
+    phi2_info.P2 = a * (a - 1) / 2;
+    phi2_info.u = ISQRTX;
+    phi2_info.v = a; 
+    phi2_info.w = phi2_info.u + 1;
+    phi2_info.done = false;
+
 
     // save phi values for summing
     // phi_save(k, b) = phi(z_k - 1, b) from last block
@@ -251,70 +313,21 @@ int64_t primecount(void)
             }
 
             // phi2, sieved out first a primes 
-            else if (b == a && !phi2_done)
+            else if (b == a && !phi2_info.done)
             {
-                while (true)
-                {
-                    //alg3_step3:
-                    
-                    if (u <= IACBRTX) 
-                    {
-                        P2 -= v * (v - 1) / 2;
-                        phi2_done = true;
-                        goto alg3_exit; // rewrite as return phi2_done?
-                    }
-
-                    if (u < w)
-                    {
-                        // new aux sieve [w,u] of size IACBRTX+1
-                        w = max((int64_t)2, u - IACBRTX);
-                        aux.assign(u - w + 1, true);
-
-                        // TODO: more efficient sieve
-                        for (int64_t p : PRIMES) 
-                        {
-                            if (p < 2) continue;
-                            for (int64_t j = 2*p; j <= u; j += p)
-                            {
-                                if (j < w) continue;
-                                aux[j-w] = false;
-                            }
-                        }
-                    }
-
-                    // check u to track largest pb not considered yet
-                    // v counts primes up to sqrt(x)
-                    if (!aux[u-w]) // not prime
-                    {
-                        --u;
-                    }
-                    else
-                    {
-                        int64_t y = X / u;
-
-                        if (y >= zk) 
-                            goto alg3_exit;
-
-                        // phi(y,a)
-                        int64_t phi = phi_save[a] + phi_block.sum_to(y-zk1);
-                        P2 += phi + a - 1;
-                        ++v;
-                        --u;
-                    }                  
-                }
+                phi2_info.alg3(zk1, zk, phi_save, phi_block);
             }
 
-            alg3_exit:
 
             // for next block k
             phi_save[b] += phi_block.sum_to(BS-1);
-
-            //cout << "phi_save " << phi_save[b] << endl;
 
         }
     }
 
     // accumulate final results
+
+    int64_t P2 = phi2_info.P2;
 
     cout << "P2 = " << P2 << "\n";
     cout << "S1 = " << S1 << endl;
