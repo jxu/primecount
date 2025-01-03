@@ -9,13 +9,13 @@ using namespace std;
 
 // tuning parameters
 #ifdef DEBUG
-const double  ALPHA = 1;
+const int64_t ALPHA = 1;
 const int64_t C     = 1;
 const int64_t BS    = 50;
 #else
-const double  ALPHA = 10;      // tuning parameter
-const int64_t C     = 7;       // precompute phi_c parameter
-const int64_t BS    = 1 << 24; // sieve block size
+const int64_t ALPHA = 6;       // tuning parameter
+const int64_t C     = 8;       // precompute phi_c parameter
+const int64_t BS    = 1 << 20; // sieve block size
 #endif
 
 // global constants
@@ -101,7 +101,7 @@ void pre_phi_c(void)
         PHI_C[i] += PHI_C[i-1];
 }
 
-
+// only ints
 int64_t cube(int64_t n)
 {
     return n * n * n;
@@ -220,6 +220,12 @@ int64_t primecount(void)
     // phi_save(k, b) = phi(z_k - 1, b) from last block
     vector<int64_t> phi_save(a+1, 0);
 
+    // S2 decreasing d
+    vector<int64_t> d(a-1, a);
+
+    // S1 decreasing m
+    vector<int64_t> m(astar, IACBRTX);
+
     //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
     for (int64_t k = 1; ; ++k)
     {
@@ -255,17 +261,18 @@ int64_t primecount(void)
             {
                 int64_t pb1 = PRIMES[b+1];
                 // m decreasing
-                for (int64_t m = IACBRTX; m * pb1 > IACBRTX; --m)
+                for (; m[b] * pb1 > IACBRTX; --m[b])
                 {
-                    int64_t y = X / (m * pb1);
-                    if (y < zk1) continue;
+                    int64_t y = X / (m[b] * pb1);
+
+                    assert(y >= zk1);
                     if (y >= zk) break;
 
-                    if (abs(MU_PMIN[m]) > pb1)
+                    if (abs(MU_PMIN[m[b]]) > pb1)
                     {
                         int64_t phi_yb = phi_save[b] + phi_block.sum_to(y-zk1);
 
-                        S1 -= sgn(MU_PMIN[m]) * phi_yb;
+                        S1 -= sgn(MU_PMIN[m[b]]) * phi_yb;
                     }
                 }
             }
@@ -275,17 +282,19 @@ int64_t primecount(void)
             {
                 int64_t pb1 = PRIMES[b+1];
                 // TODO: more efficient decrement
-                // d decreasing
-                for (int64_t d = a; d > b + 1; --d)
+                // d decreasing => y increasing
+                
+                for (; d[b] > b + 1; --d[b])
                 {   
-                    int64_t pd = PRIMES[d];
+                    int64_t pd = PRIMES[d[b]];
                     int64_t y = X / (pb1 * pd);
-                    if (y < zk1) continue;
-                    if (y >= zk) break;
+                    
+                    assert(y >= zk1);
+                    if (y >= zk) break; // handle in future block
 
                     int64_t phi_yb = 0;
-                    // shortcuts 
-                    //assert(ALPHA > 1);
+                    
+                    //assert(ALPHA > 1); // not needed?
 
                     // trivial leaves
                     // counting their number tb is not faster here?
