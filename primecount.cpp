@@ -157,14 +157,16 @@ struct Phi2Info
                 w = max((int64_t)2, u - IACBRTX);
                 aux.assign(u - w + 1, true);
 
-                // TODO: more efficient sieve
-                // only need to sieve values starting at p*p within [w,u]
-                for (int64_t p : PRIMES) 
+                
+
+                for (int64_t i = 1; ; ++i) 
                 {
-                    if (p < 2) continue;
-                    for (int64_t j = 2*p; j <= u; j += p)
+                    int64_t p = PRIMES[i];
+                    if (p*p > u) break;
+
+                    // only need to sieve values starting at p*p within [w,u]
+                    for (int64_t j = max(p*p, p*ceil_div(w,p)); j <= u; j += p)
                     {
-                        if (j < w) continue;
                         aux[j-w] = false;
                     }
                 }
@@ -338,7 +340,7 @@ int64_t primecount(void)
 
     int64_t P2 = phi2_info.P2;
 
-    cout << "P2 = " << P2 << "\n";
+    cout << "P2 = " << P2 << endl;
     cout << "S1 = " << S1 << endl;
     cout << "S2 = " << S2 << endl;
 
