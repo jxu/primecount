@@ -202,6 +202,15 @@ struct Phi2Info
     vector<bool> aux; // auxiliary sieve to track primes found up to sqrt(x)
     bool done; // flag for not accidentally running when terminated
 
+    Phi2Info() :
+    P2(a * (a-1) / 2),
+    u(ISQRTX),
+    v(a),
+    w(u + 1),
+    aux(),
+    done(false)
+    {}
+
     // computation of phi2(x,a)
     void alg3(PhiBlock& phi_block)
     {
@@ -266,15 +275,7 @@ int64_t primecount(void)
     cout << "a* = " << astar << endl;
 
     // init variables used in phi2(x,a) computation
-    struct Phi2Info phi2_info = 
-    {
-        .P2 = a * (a - 1) / 2,
-        .u = ISQRTX,
-        .v = a,
-        .w = phi2_info.u + 1,
-        .aux = vector<bool>(),
-        .done = false
-    };
+    struct Phi2Info phi2_info;
 
     // save phi values for summing
     // phi_save(k, b) = phi(z_k - 1, b) from last block
