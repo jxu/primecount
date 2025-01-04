@@ -132,6 +132,66 @@ int64_t ceil_div(int64_t x, int64_t y)
     return x / y + (x % y > 0);
 }
 
+// Represents Bk = [zk1, zk) and functions to compute phi(y,b)
+struct PhiBlock
+{   
+    //int64_t k;                // block index
+    int64_t bsize;              // block size
+    int64_t zk1;                // z_{k-1}, block lower bound (inclusive)
+    int64_t zk;                 // z_k, block upper bound (exclusive)
+    vector<int64_t> ind;        // 0/1 to track [pmin(y) > pb]
+    fenwick_tree phi_sum;       // partial sums
+    vector<int64_t> phi_save;   // phi_save(k,b) = phi(zk1-1,b) from prev block
+                                // b is only explicitly used here
+
+    // init block at k=1
+    // TODO: phi_sum gets overwritten anyway?
+    PhiBlock(int64_t bsize, int64_t a) :
+        bsize(bsize), 
+        zk1(1),
+        zk(bsize + 1),
+        ind(bsize, 1), 
+        phi_sum(ind),
+        phi_save(a + 1, 0)
+    {}
+
+    void new_block(int64_t k)
+    {
+        zk1 = bsize * (k-1) + 1;
+        zk = bsize * k + 1;
+        ind.assign(bsize, 1);
+        phi_sum = fenwick_tree(ind);
+        
+        cout << "block [" << zk1 << "," << zk << ")\n";
+    }
+
+    // TODO: save space with odd values only
+    int64_t sum_to(int64_t y, int64_t b)
+    {
+        assert(y >= zk1);
+        assert(y < zk);
+        return phi_save[b] + phi_sum.sum_to(y - zk1);
+    }
+
+    void sieve_out(int64_t pb)
+    {
+        // sieve out p_b for this block
+        for (int64_t j = pb * ceil_div(zk1, pb); j < zk; j += pb)
+        {
+            if (ind[j-zk1])   // not marked yet
+            {
+                phi_sum.add_to(j-zk1, -1);
+                ind[j-zk1] = 0;
+            }
+        }        
+    }
+
+    void update_save(int64_t b)
+    {
+        phi_save[b] += phi_sum.sum_to(bsize-1);
+    }
+    
+};
 
 struct Phi2Info
 {
@@ -143,10 +203,7 @@ struct Phi2Info
     bool done; // flag for not accidentally running when terminated
 
     // computation of phi2(x,a)
-    void alg3(int64_t zk1, 
-              int64_t zk, 
-              const vector<int64_t>& phi_save, 
-              const fenwick_tree& phi_block)
+    void alg3(PhiBlock& phi_block)
     {
         // step 3 loop (u decrement steps moved here)
         for (; u > IACBRTX; --u)
@@ -156,8 +213,6 @@ struct Phi2Info
                 // new aux sieve [w,u] of size IACBRTX+1
                 w = max((int64_t)2, u - IACBRTX);
                 aux.assign(u - w + 1, true);
-
-                
 
                 for (int64_t i = 1; ; ++i) 
                 {
@@ -177,11 +232,11 @@ struct Phi2Info
             {
                 int64_t y = X / u;
 
-                if (y >= zk) 
+                if (y >= phi_block.zk) 
                     return;
 
                 // phi(y,a)
-                int64_t phi = phi_save[a] + phi_block.sum_to(y-zk1);
+                int64_t phi = phi_block.sum_to(y, a);
                 P2 += phi + a - 1;
                 ++v; // count new prime
             }                  
@@ -193,6 +248,8 @@ struct Phi2Info
         return;
     }
 };
+
+
 
 int64_t primecount(void)
 {
@@ -209,18 +266,20 @@ int64_t primecount(void)
     cout << "a* = " << astar << endl;
 
     // init variables used in phi2(x,a) computation
-    struct Phi2Info phi2_info;
-    
-    phi2_info.P2 = a * (a - 1) / 2;
-    phi2_info.u = ISQRTX;
-    phi2_info.v = a; 
-    phi2_info.w = phi2_info.u + 1;
-    phi2_info.done = false;
-
+    struct Phi2Info phi2_info = 
+    {
+        .P2 = a * (a - 1) / 2,
+        .u = ISQRTX,
+        .v = a,
+        .w = phi2_info.u + 1,
+        .aux = vector<bool>(),
+        .done = false
+    };
 
     // save phi values for summing
     // phi_save(k, b) = phi(z_k - 1, b) from last block
-    vector<int64_t> phi_save(a+1, 0);
+    struct PhiBlock phi_block(BS, a);
+
 
     // S2 decreasing d
     vector<int64_t> d(a-1, a);
@@ -231,15 +290,10 @@ int64_t primecount(void)
     //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
     for (int64_t k = 1; ; ++k)
     {
-        int64_t zk = BS*k + 1;
-        int64_t zk1 = BS*(k-1) + 1;
-        if (zk1 > Z) break;
+        // init new block
+        phi_block.new_block(k);
+        if (phi_block.zk1 > Z) break;
 
-        cout << "block [" << zk1 << "," << zk << ")\n";
-
-        // init block tree
-        vector<int64_t> Bk(BS, 1);
-        fenwick_tree phi_block(Bk);
 
         // alg1 for each b...
         // start at 0 to sieve out first C primes
@@ -249,14 +303,7 @@ int64_t primecount(void)
             int64_t pb = PRIMES[b];
 
             // sieve out p_b for this block
-            for (int64_t j = pb * ceil_div(zk1, pb); j < zk; j += pb)
-            {
-                if (Bk[j-zk1])   // not marked yet
-                {
-                    phi_block.add_to(j-zk1, -1);
-                    Bk[j-zk1] = 0;
-                }
-            }
+            phi_block.sieve_out(pb);
             
             // S1 leaves
             if (C <= b && b < astar)
@@ -267,14 +314,12 @@ int64_t primecount(void)
                 {
                     int64_t y = X / (m[b] * pb1);
 
-                    assert(y >= zk1);
-                    if (y >= zk) break;
+                    assert(y >= phi_block.zk1);
+                    if (y >= phi_block.zk) break;
 
                     if (abs(MU_PMIN[m[b]]) > pb1)
                     {
-                        int64_t phi_yb = phi_save[b] + phi_block.sum_to(y-zk1);
-
-                        S1 -= sgn(MU_PMIN[m[b]]) * phi_yb;
+                        S1 -= sgn(MU_PMIN[m[b]]) * phi_block.sum_to(y, b);
                     }
                 }
             }
@@ -283,7 +328,6 @@ int64_t primecount(void)
             else if (astar <= b && b < a - 1)     
             {
                 int64_t pb1 = PRIMES[b+1];
-                // TODO: more efficient decrement
                 // d decreasing => y increasing
                 
                 for (; d[b] > b + 1; --d[b])
@@ -291,8 +335,8 @@ int64_t primecount(void)
                     int64_t pd = PRIMES[d[b]];
                     int64_t y = X / (pb1 * pd);
                     
-                    assert(y >= zk1);
-                    if (y >= zk) break; // handle in future block
+                    assert(y >= phi_block.zk1);
+                    if (y >= phi_block.zk) break; // handle in future block
 
                     int64_t phi_yb = 0;
                     
@@ -315,7 +359,7 @@ int64_t primecount(void)
                     // hard leaves
                     else 
                     {
-                        phi_yb = phi_save[b] + phi_block.sum_to(y-zk1);
+                        phi_yb = phi_block.sum_to(y, b);
                     }
 
                     S2 += phi_yb;
@@ -326,13 +370,12 @@ int64_t primecount(void)
             // phi2, sieved out first a primes 
             else if (b == a && !phi2_info.done)
             {
-                phi2_info.alg3(zk1, zk, phi_save, phi_block);
+                phi2_info.alg3(phi_block);
             }
 
 
             // for next block k
-            phi_save[b] += phi_block.sum_to(BS-1);
-
+            phi_block.update_save(b);
         }
     }
 
