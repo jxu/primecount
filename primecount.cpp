@@ -10,7 +10,7 @@ using namespace std;
 // tuning parameters
 #ifdef DEBUG
 const int64_t ALPHA = 1;
-const int64_t C     = 1;
+const int64_t C     = 2;
 const int64_t BS    = 50;
 #else
 const int64_t ALPHA = 6;       // tuning parameter
@@ -133,14 +133,15 @@ int64_t ceil_div(int64_t x, int64_t y)
 }
 
 // Represents Bk = [zk1, zk) and functions to compute phi(y,b)
+// The physical block size is half the logical size by only storing odd values
+// For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
 struct PhiBlock
 {   
-    //int64_t k;                // block index
-    int64_t bsize;              // block size
+    int64_t bsize;              // (logical) block size
     int64_t zk1;                // z_{k-1}, block lower bound (inclusive)
     int64_t zk;                 // z_k, block upper bound (exclusive)
     vector<int64_t> ind;        // 0/1 to track [pmin(y) > pb]
-    fenwick_tree phi_sum;       // partial sums
+    fenwick_tree phi_sum;       // data structure for efficient partial sums
     vector<int64_t> phi_save;   // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
 
@@ -150,45 +151,54 @@ struct PhiBlock
         bsize(bsize), 
         zk1(1),
         zk(bsize + 1),
-        ind(bsize, 1), 
+        ind(bsize/2, 1), 
         phi_sum(ind),
         phi_save(a + 1, 0)
-    {}
+    {
+        assert(bsize % 2 == 0); // requires even size
+    }
 
     void new_block(int64_t k)
     {
         zk1 = bsize * (k-1) + 1;
         zk = bsize * k + 1;
-        ind.assign(bsize, 1);
+        ind.assign(bsize/2, 1); 
         phi_sum = fenwick_tree(ind);
+        // does not reset phi_save!
         
         cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
-    // TODO: save space with odd values only
+    // phi(y,b) compute 
     int64_t sum_to(int64_t y, int64_t b)
     {
         assert(y >= zk1);
         assert(y < zk);
-        return phi_save[b] + phi_sum.sum_to(y - zk1);
+        return phi_save[b] + phi_sum.sum_to((y - zk1)/2);
     }
 
+    // sieve out p_b for this block
     void sieve_out(int64_t pb)
     {
-        // sieve out p_b for this block
-        for (int64_t j = pb * ceil_div(zk1, pb); j < zk; j += pb)
+        assert(pb > 2);
+
+        int64_t jstart = pb * ceil_div(zk1, pb);
+        if (jstart % 2 == 0) 
+            jstart += pb; // ensure odd
+        
+        for (int64_t j = jstart; j < zk; j += 2*pb)
         {
-            if (ind[j-zk1])   // not marked yet
+            if (ind[(j-zk1)/2])   // not marked yet
             {
-                phi_sum.add_to(j-zk1, -1);
-                ind[j-zk1] = 0;
+                phi_sum.add_to((j-zk1)/2, -1);
+                ind[(j-zk1)/2] = 0;
             }
         }        
     }
 
     void update_save(int64_t b)
     {
-        phi_save[b] += phi_sum.sum_to(bsize-1);
+        phi_save[b] += phi_sum.sum_to(bsize/2-1);
     }
     
 };
@@ -298,14 +308,18 @@ int64_t primecount(void)
 
         // alg1 for each b...
         // start at 0 to sieve out first C primes
-        for (int64_t b = 1; b <= a; ++b)
+
+        assert(C >= 2);
+        
+        for (int64_t b = 2; b <= a; ++b)
         {
             //cout << "b " << b << endl;
             int64_t pb = PRIMES[b];
 
             // sieve out p_b for this block
             phi_block.sieve_out(pb);
-            
+
+          
             // S1 leaves
             if (C <= b && b < astar)
             {
