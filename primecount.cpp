@@ -193,6 +193,9 @@ struct Primecount
         v = a;
         w = u + 1;
         phi2done = false;
+
+        S2.assign(a-1, 0);
+        t.assign(a-1, 0);
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -275,10 +278,9 @@ struct Primecount
         cout << "S0 = " << S0 << "\n";
     }
 
-
+    // Algorithm 1
     void S1_iter(int64_t b)
     {
-        //cout << "S1 " << b << endl;
         int64_t pb1 = PRIMES[b+1];
         // m decreasing
         for (; m[b] * pb1 > IACBRTX; --m[b])
@@ -295,65 +297,77 @@ struct Primecount
         }        
     }
 
+    // Algorithm 2 hell
     void S2_iter(int64_t b, const PhiBlock& phi_block)
     {
         int64_t pb1 = PRIMES[b+1];
-        while (d2[b] > b + 1)
+        
+        while (d2[b] > b + 1) // step 2, main loop
         {
             int64_t y = X / (pb1 * PRIMES[d2[b]]);
 
-            if (t[b] == 2)
+            if (t[b] == 2) // hard leaves
             {
-                if (y >= phi_block.zk)
+                if (y >= phi_block.zk) // step 7
                 {
-                    return;
+                    return; // pause until next block 
                 }
-                else
+                else // step 8 (contribution using phi_block)
                 {
                     S2[b] += phi_block.sum_to(y, b);
-                    d2[b]--;
-                    continue; // next block
+                    --d2[b];
+                    continue; // repeat loop
                 }
             } 
-            else
+            else // t = 0 or 1, easy leaves
             {
                 if (y >= IACBRTX) 
                 {
                     t[b] = 2;
+                    // since t = 2 is set and d2 didn't change, the new loop
+                    // will go to step 7
                     continue;
                 }                   
-                else
+                else // step 3/5
                 {
                     int64_t l = PRIME_COUNT[y] - b + 1;
                     
-                    if (t[b] == 0)
+                    if (t[b] == 0) // step 3
                     {
-                        
+                        // d' + 1 is the smallest d for which (12) holds:
+                        // phi(x / (pb1*pd), b) = pi(x / (pb1*pd)) - b + 1
                         int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b+l])];
 
+                        // step 4
                         if ((PRIMES[d_+1]*PRIMES[d_+1] <= X / pb1) || (d_ <= b))
                         {
                             t[b] = 1;
+                            // step 6 
+                            S2[b] += l;
+                            --d2[b];
                             continue;
                         }
-                        else
+                        else // step 5, clustered easy leaves
                         {
                             S2[b] += l * (d2[b] - d_);
                             d2[b] = d_;
                         }
                         
                     }
-                    else // t[b] == 1
-                    {
+                    else // t = 1, sparse easy leaves
+                    {   
+                        // step 6 again
                         S2[b] += l;
                         --d2[b];
+                        continue; // not necessary
                     }
                 }
             }
         }
+        return; // terminate
     }
 
-    // computation of phi2(x,a)
+    // Algorithm 3: computation of phi2(x,a)
     void P2_iter(PhiBlock& phi_block)
     {
         // step 3 loop (u decrement steps moved here)
@@ -372,9 +386,7 @@ struct Primecount
 
                     // only need to sieve values starting at p*p within [w,u]
                     for (int64_t j = max(p*p, p*ceil_div(w,p)); j <= u; j += p)
-                    {
                         aux[j-w] = false;
-                    }
                 }
             }
 
@@ -382,7 +394,6 @@ struct Primecount
             if (aux[u-w]) // prime
             {
                 int64_t y = X / u;
-
                 if (y >= phi_block.zk) 
                     return;
 
@@ -403,40 +414,25 @@ struct Primecount
 };
 
 
-
 int64_t Primecount::primecount(void)
 {
     // Ordinary leaves
     S0_compute();
 
-    S2.assign(a-1, 0);
-    t.assign(a-1, 0);
-
-   // cout << "hi" << endl;
-
     // Init S2 vars
     for (int64_t b = astar; b < a - 1; ++b) 
     {
         int64_t pb1 = PRIMES[b+1];
-        int64_t tb;
 
-        //cout << b << " " << pb1 << endl;
-        
-        if (X <= cube(pb1))
-        {
-            tb = b + 2;
-            }
-        else if (pb1*pb1 <= Z) {
-            tb = a + 1; }
-        else {
-            tb = PRIME_COUNT[X / (pb1 * pb1)] + 1; }
+        int64_t tb;
+        if (X <= cube(pb1))     tb = b + 2;
+        else if (pb1*pb1 <= Z)  tb = a + 1; 
+        else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1; 
 
         d2[b] = tb - 1;
         S2[b] = a - d2[b];
         t[b] = 0;
     }
-
-    //cout << "Init S2" << endl;
 
     //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
     for (int64_t k = 1; ; ++k)
@@ -458,15 +454,15 @@ int64_t Primecount::primecount(void)
             // sieve out p_b for this block (including <= C)
             phi_block.sieve_out(pb);
           
-            // S1 leaves
+            // S1 leaves, b in [C, astar)
             if (C <= b && b < astar)
                 S1_iter(b);
 
-            // S2, b in [astar, a-1)
+            // S2 leaves, b in [astar, a-1)
             else if (astar <= b && b < a - 1)     
                 S2_iter(b, phi_block);
 
-            // phi2, sieved out first a primes 
+            // phi2, after sieved out first a primes 
             else if (b == a && !phi2done)
                 P2_iter(phi_block);
 
@@ -478,7 +474,6 @@ int64_t Primecount::primecount(void)
     int64_t S2_total = 0;
     for (auto x : S2)
         S2_total += x;
-    
 
     // accumulate final results
     cout << "S1 = " << S1 << endl;
