@@ -7,30 +7,6 @@
 
 using namespace std;
 
-// tuning parameters
-#ifdef DEBUG
-const int64_t ALPHA = 1;
-const int64_t C     = 2;
-const int64_t BS    = 50;
-#else
-const int64_t ALPHA = 6;       // tuning parameter
-const int64_t C     = 8;       // precompute phi_c parameter
-const int64_t BS    = 1 << 20; // sieve block size
-#endif
-
-// global constants
-int64_t X;       // Main value to compute pi(X) for
-int64_t Q;       // phi_c table size, shouldn't be too large
-int64_t Z;       // X^(2/3) / alpha (approx)
-int64_t ISQRTX;  // floor(sqrt(X))
-int64_t IACBRTX; // floor(alpha cbrt(X))
-int64_t a;       // pi(alpha cbrt(X))
-
-// precomputed tables
-vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,acbrtx] 
-vector<int64_t> PRIMES;      // primes <= acbrtx
-vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx] 
-vector<int32_t> PHI_C;       // phi(x,c) over [1,Q]
 
 // signum: returns -1, 0, or 1
 int sgn(int64_t x)
@@ -38,93 +14,6 @@ int sgn(int64_t x)
     return (x > 0) - (x < 0);
 }
 
-// precompute PRIMES, PRIME_COUNT, and MU_PMIN with a standard sieve to acbrtx
-void sieve_mu_prime(void)
-{
-    // for larger values of X, need to subdivide the interval
-    MU_PMIN.assign(IACBRTX+1, 1);     // init to 1s
-    MU_PMIN[1] = 1000;               // define pmin(1) = +inf
-    PRIMES.push_back(1);             // p0 = 1 by convention
-    PRIME_COUNT.resize(IACBRTX+1);    // init values don't matter here
-
-    int64_t i, j;
-    int64_t prime_counter = 0;
-
-    // sieve of Eratosthenes, modification to keep track of mu sign and pmin
-    for (j = 2; j <= IACBRTX; ++j)
-    {
-        if (MU_PMIN[j] == 1)   // unmarked, so it is prime
-        {
-            for (i = j; i <= IACBRTX; i += j)
-            {
-                MU_PMIN[i] = (MU_PMIN[i] == 1) ? -j : -MU_PMIN[i];
-            }
-        }
-    }
-
-    // complete MU_PMIN, compute PRIMES and PRIME_COUNT
-    for (j = 2; j <= IACBRTX; ++j)
-    {
-        if (MU_PMIN[j] == -j)   // prime
-        {
-            PRIMES.push_back(j);
-            ++prime_counter;
-
-            // mark multiples of p^2 as 0 for mu
-            for (i = j*j; i <= IACBRTX; i += j*j)
-                MU_PMIN[i] = 0;
-        }
-
-        PRIME_COUNT[j] = prime_counter;
-    }
-}
-
-void pre_phi_c(void)
-{
-    // compute Q as product of first C primes
-    Q = 1;
-    for (int64_t i = 1; i <= C; ++i)
-        Q *= PRIMES[i];
-
-    PHI_C.resize(Q+1, 1); // index up to Q inclusive
-    PHI_C[0] = 0;
-
-    for (int64_t i = 1; i <= C; ++i)
-    {
-        int64_t p = PRIMES[i]; // ith prime, mark multiples as 0
-        for (int64_t j = p; j <= Q; j += p)
-            PHI_C[j] = 0;
-    }
-
-    // accumulate
-    for (int64_t i = 1; i <= Q; ++i)
-        PHI_C[i] += PHI_C[i-1];
-}
-
-// only ints
-int64_t cube(int64_t n)
-{
-    return n * n * n;
-}
-
-
-// contribution of ordinary leaves to phi(x,a)
-int64_t S0_compute(void)
-{
-    int64_t S0 = 0;
-    for (int64_t n = 1; n <= IACBRTX; ++n)
-    {
-        if (abs(MU_PMIN[n]) > PRIMES[C])
-        {
-            int64_t y = X / n;
-            // use precomputed PHI_C table
-            int64_t phi_yc = (y / Q) * PHI_C[Q] + PHI_C[y % Q];
-            S0 += sgn(MU_PMIN[n]) * phi_yc;
-        }
-    }
-    cout << "S0 = " << S0 << "\n";
-    return S0;
-}
 
 // ceil(x/y) for positive integers
 int64_t ceil_div(int64_t x, int64_t y)
@@ -203,8 +92,169 @@ struct PhiBlock
     
 };
 
+
+
+
+struct Primecount
+{
+    // tuning parameters
+    int64_t ALPHA;       // tuning parameter
+    int64_t C;       // precompute phi_c parameter
+    int64_t BS; // sieve block size   
+
+    // global constants
+     int64_t X;       // Main value to compute pi(X) for
+     int64_t Q;       // phi_c table size, shouldn't be too large
+     int64_t Z;       // X^(2/3) / alpha (approx)
+     int64_t ISQRTX;  // floor(sqrt(X))
+     int64_t IACBRTX; // floor(alpha cbrt(X))
+     int64_t a;       // pi(alpha cbrt(X)) 
+
+    // precomputed tables
+    vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,acbrtx] 
+    vector<int64_t> PRIMES;      // primes <= acbrtx
+    vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx] 
+    vector<int32_t> PHI_C;       // phi(x,c) over [1,Q]     
+
+    Primecount(int64_t x, int64_t alpha, int64_t bs) :
+    ALPHA(alpha),
+    C(8),
+    BS(bs),
+    X(x),
+    Z(cbrt(X) * cbrt(X) / ALPHA), // approx
+    ISQRTX(sqrt(X)),
+    IACBRTX(ALPHA * cbrt(X))
+    {
+        // check alpha isn't set too large
+        assert(ALPHA <= pow(X, 1/6.));
+
+
+        // ensure floating point truncated values are exact floors
+        assert(ISQRTX*ISQRTX <= X && (ISQRTX+1)*(ISQRTX+1) > X);
+
+
+        assert(cube(IACBRTX)  <= cube(ALPHA) * X &&
+               cube(IACBRTX+1) > cube(ALPHA) * X);
+
+
+        cout << "Computing for X = " << X << endl;
+        cout << "Z = " << Z << endl;
+        cout << "IACBRTX = " << IACBRTX << endl;
+        cout << "ISQRTX = " << ISQRTX << endl;
+
+        
+        sieve_mu_prime();
+        pre_phi_c();
+
+        a = PRIME_COUNT[IACBRTX];
+        cout << "a = " << a << endl;
+
+
+
+        
+    }
+
+    // precompute PRIMES, PRIME_COUNT, and MU_PMIN with a standard sieve to acbrtx
+    void sieve_mu_prime(void)
+    {
+        // for larger values of X, need to subdivide the interval
+        MU_PMIN.assign(IACBRTX+1, 1);     // init to 1s
+        MU_PMIN[1] = 1000;               // define pmin(1) = +inf
+        PRIMES.push_back(1);             // p0 = 1 by convention
+        PRIME_COUNT.resize(IACBRTX+1);    // init values don't matter here
+
+        int64_t i, j;
+        int64_t prime_counter = 0;
+
+        // sieve of Eratosthenes, modification to keep track of mu sign and pmin
+        for (j = 2; j <= IACBRTX; ++j)
+        {
+            if (MU_PMIN[j] == 1)   // unmarked, so it is prime
+            {
+                for (i = j; i <= IACBRTX; i += j)
+                {
+                    MU_PMIN[i] = (MU_PMIN[i] == 1) ? -j : -MU_PMIN[i];
+                }
+            }
+        }
+
+        // complete MU_PMIN, compute PRIMES and PRIME_COUNT
+        for (j = 2; j <= IACBRTX; ++j)
+        {
+            if (MU_PMIN[j] == -j)   // prime
+            {
+                PRIMES.push_back(j);
+                ++prime_counter;
+
+                // mark multiples of p^2 as 0 for mu
+                for (i = j*j; i <= IACBRTX; i += j*j)
+                    MU_PMIN[i] = 0;
+            }
+
+            PRIME_COUNT[j] = prime_counter;
+        }
+    }
+
+    void pre_phi_c(void)
+    {
+        // compute Q as product of first C primes
+        Q = 1;
+        for (int64_t i = 1; i <= C; ++i)
+            Q *= PRIMES[i];
+
+        PHI_C.resize(Q+1, 1); // index up to Q inclusive
+        PHI_C[0] = 0;
+
+        for (int64_t i = 1; i <= C; ++i)
+        {
+            int64_t p = PRIMES[i]; // ith prime, mark multiples as 0
+            for (int64_t j = p; j <= Q; j += p)
+                PHI_C[j] = 0;
+        }
+
+        // accumulate
+        for (int64_t i = 1; i <= Q; ++i)
+            PHI_C[i] += PHI_C[i-1];
+    }
+
+    // only ints
+    int64_t cube(int64_t n)
+    {
+        return n * n * n;
+    }
+
+
+    // contribution of ordinary leaves to phi(x,a)
+    int64_t S0_compute(void)
+    {
+        int64_t S0 = 0;
+        for (int64_t n = 1; n <= IACBRTX; ++n)
+        {
+            if (abs(MU_PMIN[n]) > PRIMES[C])
+            {
+                int64_t y = X / n;
+                // use precomputed PHI_C table
+                int64_t phi_yc = (y / Q) * PHI_C[Q] + PHI_C[y % Q];
+                S0 += sgn(MU_PMIN[n]) * phi_yc;
+            }
+        }
+        cout << "S0 = " << S0 << "\n";
+        return S0;
+    }
+
+    int64_t primecount();
+
+};
+
+
 struct Phi2Info
 {
+    int64_t X;
+    int64_t ISQRTX;
+    int64_t IACBRTX;
+    vector<int64_t> PRIMES;
+    int64_t a;
+
     int64_t P2; // phi2 
     int64_t u; // largest p_b not considered yet
     int64_t v; // count number of primes up to sqrt(x)
@@ -212,7 +262,14 @@ struct Phi2Info
     vector<bool> aux; // auxiliary sieve to track primes found up to sqrt(x)
     bool done; // flag for not accidentally running when terminated
 
-    Phi2Info() :
+    Phi2Info(Primecount* P) :
+
+    X(P->X),
+    ISQRTX(P->ISQRTX),
+    IACBRTX(P->IACBRTX),
+    PRIMES(P->PRIMES),
+    a(P->a),
+    
     P2(a * (a-1) / 2),
     u(ISQRTX),
     v(a),
@@ -268,9 +325,7 @@ struct Phi2Info
     }
 };
 
-
-
-int64_t primecount(void)
+int64_t Primecount::primecount(void)
 {
     // Init
     int64_t S1 = 0, S2 = 0;
@@ -285,7 +340,7 @@ int64_t primecount(void)
     cout << "a* = " << astar << endl;
 
     // init variables used in phi2(x,a) computation
-    struct Phi2Info phi2_info;
+    struct Phi2Info phi2_info(this);
 
     // save phi values for summing
     // phi_save(k, b) = phi(z_k - 1, b) from last block
@@ -414,34 +469,12 @@ int main(int argc, char* argv[])
     }
 
     // setup global constants
-    X = atof(argv[1]); // read float from command line
-    Z = (cbrt(X) * cbrt(X) / ALPHA);  // approx
-    
-    // check alpha isn't set too large
-    assert(ALPHA <= pow(X, 1/6.));
+    int64_t X = atof(argv[1]); // read float from command line
+    int64_t bs = 1 << 20;
+    int64_t alpha = 6;
 
-    ISQRTX = sqrt(X);
-    // ensure floating point truncated values are exact floors
-    assert(ISQRTX*ISQRTX <= X && (ISQRTX+1)*(ISQRTX+1) > X);
-
-    IACBRTX = ALPHA * cbrt(X);
-    assert(cube(IACBRTX)  <= cube(ALPHA) * X &&
-           cube(IACBRTX+1) > cube(ALPHA) * X);
+    Primecount P(X, alpha, bs);
 
 
-
-    cout << "Computing for X = " << X << endl;
-    cout << "Z = " << Z << endl;
-    cout << "IACBRTX = " << IACBRTX << endl;
-    cout << "ISQRTX = " << ISQRTX << endl;
-
-    
-    sieve_mu_prime();
-    pre_phi_c();
-
-    a = PRIME_COUNT[IACBRTX];
-    cout << "a = " << a << endl;
-
-    int64_t pi = primecount();
-    cout << pi << endl;
+    cout << P.primecount() << endl;
 }
