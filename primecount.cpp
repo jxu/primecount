@@ -95,7 +95,6 @@ struct PhiBlock
     {
         phi_save[b] += phi_sum.sum_to(bsize/2-1);
     }
-    
 };
 
 
@@ -113,7 +112,7 @@ struct Primecount
     int64_t ISQRTX;  // floor(sqrt(X))
     int64_t IACBRTX; // floor(alpha cbrt(X))
     int64_t a;       // pi(alpha cbrt(X)) 
-    int64_t astar;
+    int64_t astar;   // p_a*^2 = alpha cbrt(X), i.e. a* = pi(sqrt(alpha cbrt X))
 
     // precomputed tables
     vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [1,acbrtx] 
@@ -125,7 +124,7 @@ struct Primecount
     int64_t S0 = 0;
     int64_t S1 = 0;
     int64_t S2 = 0;
-    int64_t P2 = 0;
+    int64_t P2;
 
     // Save values between iters
     // save phi values for summing
@@ -134,6 +133,13 @@ struct Primecount
 
     vector<int64_t> m; // S1 decreasing m
     vector<int64_t> d; // S2 decreasing d
+
+    // Phi2 saved variables
+    int64_t u; // largest p_b not considered yet
+    int64_t v; // count number of primes up to sqrt(x)
+    int64_t w; // track first integer represented in aux
+    vector<bool> aux; // auxiliary sieve to track primes found up to sqrt(x)
+    bool phi2done; // flag for not accidentally running when terminated
 
     Primecount(int64_t x, int64_t alpha, int64_t bs) :
     ALPHA(alpha),
@@ -178,7 +184,14 @@ struct Primecount
         d = vector<int64_t>(a-1, a);
         m = vector<int64_t>(astar, IACBRTX);
 
+        // init 
         phi_block = PhiBlock(BS, a);
+
+        P2 = a * (a - 1) / 2;
+        u = ISQRTX;
+        v = a;
+        w = u + 1;
+        phi2done = false;
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -321,43 +334,8 @@ struct Primecount
         }        
     }
 
-    int64_t primecount();
-};
-
-
-struct Phi2Info
-{
-    int64_t X;
-    int64_t ISQRTX;
-    int64_t IACBRTX;
-    vector<int64_t> PRIMES;
-    int64_t a;
-
-    int64_t P2; // phi2 
-    int64_t u; // largest p_b not considered yet
-    int64_t v; // count number of primes up to sqrt(x)
-    int64_t w; // track first integer represented in aux
-    vector<bool> aux; // auxiliary sieve to track primes found up to sqrt(x)
-    bool done; // flag for not accidentally running when terminated
-
-    Phi2Info(Primecount* P) :
-
-    X(P->X),
-    ISQRTX(P->ISQRTX),
-    IACBRTX(P->IACBRTX),
-    PRIMES(P->PRIMES),
-    a(P->a),
-    
-    P2(a * (a-1) / 2),
-    u(ISQRTX),
-    v(a),
-    w(u + 1),
-    aux(),
-    done(false)
-    {}
-
     // computation of phi2(x,a)
-    void alg3(PhiBlock& phi_block)
+    void P2_iter(PhiBlock& phi_block)
     {
         // step 3 loop (u decrement steps moved here)
         for (; u > IACBRTX; --u)
@@ -398,19 +376,19 @@ struct Phi2Info
 
         // step 3 terminate
         P2 -= v * (v - 1) / 2;
-        done = true;
+        phi2done = true;
         return;
     }
+
+    int64_t primecount();
 };
+
+
 
 int64_t Primecount::primecount(void)
 {
     // Ordinary leaves
     S0_compute();
-
-    // init variables used in phi2(x,a) computation
-    struct Phi2Info phi2_info(this);
-
 
     //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
     for (int64_t k = 1; ; ++k)
@@ -440,8 +418,8 @@ int64_t Primecount::primecount(void)
                 S2_iter(b);
 
             // phi2, sieved out first a primes 
-            else if (b == a && !phi2_info.done)
-                phi2_info.alg3(phi_block);
+            else if (b == a && !phi2done)
+                P2_iter(phi_block);
 
             // for next block k
             phi_block.update_save(b);
@@ -449,12 +427,9 @@ int64_t Primecount::primecount(void)
     }
 
     // accumulate final results
-
-    int64_t P2 = phi2_info.P2;
-
-    cout << "P2 = " << P2 << endl;
     cout << "S1 = " << S1 << endl;
     cout << "S2 = " << S2 << endl;
+    cout << "P2 = " << P2 << endl;
 
     return S0 + S1 + S2 + a - 1 - P2;
 }
@@ -473,7 +448,6 @@ int main(int argc, char* argv[])
     int64_t alpha = 6;
 
     Primecount P(X, alpha, bs);
-
 
     cout << P.primecount() << endl;
 }
