@@ -35,7 +35,7 @@ struct PhiBlock
     int64_t bsize;              // (logical) block size
     int64_t zk1;                // z_{k-1}, block lower bound (inclusive)
     int64_t zk;                 // z_k, block upper bound (exclusive)
-    vector<int64_t> ind;        // 0/1 to track [pmin(y) > pb]
+    vector<bool> ind;           // 0/1 to track [pmin(y) > pb]
     fenwick_tree phi_sum;       // data structure for efficient partial sums
     vector<int64_t> phi_save;   // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
@@ -312,7 +312,7 @@ struct Primecount
 
             // trivial leaves
             // counting their number tb is not faster here?
-            if (max(X / (pb1*pb1), pb1) < pd && pd <= IACBRTX) 
+            if (max(X / (pb1*pb1), pb1) < pd) 
             {
                 phi_yb = 1;
             }
