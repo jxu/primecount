@@ -3,8 +3,8 @@ flowchart TD
 2{Step 2:<br>d2b = b + 1?}-->|Yes|T
 T([Terminate])
 2-->|No|2n
-2n["Set y = x/(p[b+1] p[d2b])"]-->|t=0,1|3
-2n-->|t=2|7
+2n["Set y = x/(p[b+1] p[d2b])"]-->|"t=0,1 (easy leaves)"|3
+2n-->|"t=2 (hard leaves)"|7
 3{"Step 3/5:<br>y >= α ∛x?"}-->|Yes|3y
 3y[Set t=2]-->9
 3-->|No|3n
@@ -14,10 +14,10 @@ T([Terminate])
 4{"Step 4:<br>p[d'+1] <= √(x / p[b+1])<br>or d' <= b"?}-->|Yes|4y
 4y[Set t=1]-->6
 4-->|No|4n
-4n["S2b += l(d2b -d'), d2b = d'"]-->2
-6["Step 6:<br>S2b += l, d2b -= 1"]-->2
+4n["(clustered)<br>S2b += l(d2b -d'), d2b = d'"]-->2
+6["Step 6: (sparse)<br>S2b += l, d2b -= 1"]-->2
 8-->2
-8["Step 8:<br>S2b += phi(y,b), d2b -= 1"]
+8["Step 8: (hard)<br>S2b += phi(y,b), d2b -= 1"]
 subgraph Sieving pb from block
 7{"Step 7:<br>y >= zk?"}-->|Yes|7y
 7y["k += 1 (next block)"]-->9
