@@ -65,7 +65,7 @@ struct PhiBlock
     }
 
     // phi(y,b) compute 
-    int64_t sum_to(int64_t y, int64_t b)
+    int64_t sum_to(int64_t y, int64_t b) const
     {
         assert(y >= zk1);
         assert(y < zk);
@@ -123,7 +123,8 @@ struct Primecount
     // Sum accumulators
     int64_t S0 = 0;
     int64_t S1 = 0;
-    int64_t S2 = 0;
+    vector<int64_t> S2;
+    vector<int64_t>  t;
     int64_t P2;
 
     // Save values between iters
@@ -132,7 +133,7 @@ struct Primecount
     PhiBlock phi_block;
 
     vector<int64_t> m; // S1 decreasing m
-    vector<int64_t> d; // S2 decreasing d
+    vector<int64_t> d2; // S2 decreasing d
 
     // Phi2 saved variables
     int64_t u; // largest p_b not considered yet
@@ -181,7 +182,7 @@ struct Primecount
 
         cout << "a* = " << astar << endl;
 
-        d = vector<int64_t>(a-1, a);
+        d2 = vector<int64_t>(a-1, 0);
         m = vector<int64_t>(astar, IACBRTX);
 
         // init 
@@ -277,6 +278,7 @@ struct Primecount
 
     void S1_iter(int64_t b)
     {
+        //cout << "S1 " << b << endl;
         int64_t pb1 = PRIMES[b+1];
         // m decreasing
         for (; m[b] * pb1 > IACBRTX; --m[b])
@@ -293,45 +295,62 @@ struct Primecount
         }        
     }
 
-    void S2_iter(int64_t b)
+    void S2_iter(int64_t b, const PhiBlock& phi_block)
     {
         int64_t pb1 = PRIMES[b+1];
-        // d decreasing => y increasing
-        
-        for (; d[b] > b + 1; --d[b])
-        {   
-            int64_t pd = PRIMES[d[b]];
-            int64_t y = X / (pb1 * pd);
-            
-            assert(y >= phi_block.zk1);
-            if (y >= phi_block.zk) break; // handle in future block
+        while (d2[b] > b + 1)
+        {
+            int64_t y = X / (pb1 * PRIMES[d2[b]]);
 
-            int64_t phi_yb = 0;
-            
-            //assert(ALPHA > 1); // not needed?
-
-            // trivial leaves
-            // counting their number tb is not faster here?
-            if (max(X / (pb1*pb1), pb1) < pd) 
+            if (t[b] == 2)
             {
-                phi_yb = 1;
-            }
-            // easy leaves
-            else if (max(Z / pb1, pb1) < pd && 
-                pd <= min(X / (pb1*pb1), IACBRTX))
+                if (y >= phi_block.zk)
+                {
+                    return;
+                }
+                else
+                {
+                    S2[b] += phi_block.sum_to(y, b);
+                    d2[b]--;
+                    continue; // next block
+                }
+            } 
+            else
             {
-                // condition (13) guarantees y <= alpha cbrtx
-                phi_yb = PRIME_COUNT[y] - b + 1;
-            }
+                if (y >= IACBRTX) 
+                {
+                    t[b] = 2;
+                    continue;
+                }                   
+                else
+                {
+                    int64_t l = PRIME_COUNT[y] - b + 1;
+                    
+                    if (t[b] == 0)
+                    {
+                        
+                        int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b+l])];
 
-            // hard leaves
-            else 
-            {
-                phi_yb = phi_block.sum_to(y, b);
+                        if ((PRIMES[d_+1]*PRIMES[d_+1] <= X / pb1) || (d_ <= b))
+                        {
+                            t[b] = 1;
+                            continue;
+                        }
+                        else
+                        {
+                            S2[b] += l * (d2[b] - d_);
+                            d2[b] = d_;
+                        }
+                        
+                    }
+                    else // t[b] == 1
+                    {
+                        S2[b] += l;
+                        --d2[b];
+                    }
+                }
             }
-
-            S2 += phi_yb;
-        }        
+        }
     }
 
     // computation of phi2(x,a)
@@ -390,6 +409,35 @@ int64_t Primecount::primecount(void)
     // Ordinary leaves
     S0_compute();
 
+    S2.assign(a-1, 0);
+    t.assign(a-1, 0);
+
+   // cout << "hi" << endl;
+
+    // Init S2 vars
+    for (int64_t b = astar; b < a - 1; ++b) 
+    {
+        int64_t pb1 = PRIMES[b+1];
+        int64_t tb;
+
+        //cout << b << " " << pb1 << endl;
+        
+        if (X <= cube(pb1))
+        {
+            tb = b + 2;
+            }
+        else if (pb1*pb1 <= Z) {
+            tb = a + 1; }
+        else {
+            tb = PRIME_COUNT[X / (pb1 * pb1)] + 1; }
+
+        d2[b] = tb - 1;
+        S2[b] = a - d2[b];
+        t[b] = 0;
+    }
+
+    //cout << "Init S2" << endl;
+
     //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
     for (int64_t k = 1; ; ++k)
     {
@@ -400,6 +448,7 @@ int64_t Primecount::primecount(void)
         // For each b...
         // start at 2 to sieve out odd primes
         assert(C >= 2);
+        assert(C < astar);
         
         for (int64_t b = 2; b <= a; ++b)
         {
@@ -415,7 +464,7 @@ int64_t Primecount::primecount(void)
 
             // S2, b in [astar, a-1)
             else if (astar <= b && b < a - 1)     
-                S2_iter(b);
+                S2_iter(b, phi_block);
 
             // phi2, sieved out first a primes 
             else if (b == a && !phi2done)
@@ -426,12 +475,17 @@ int64_t Primecount::primecount(void)
         }
     }
 
+    int64_t S2_total = 0;
+    for (auto x : S2)
+        S2_total += x;
+    
+
     // accumulate final results
     cout << "S1 = " << S1 << endl;
-    cout << "S2 = " << S2 << endl;
+    cout << "S2 = " << S2_total << endl;
     cout << "P2 = " << P2 << endl;
 
-    return S0 + S1 + S2 + a - 1 - P2;
+    return S0 + S1 + S2_total + a - 1 - P2;
 }
 
 int main(int argc, char* argv[])
@@ -444,7 +498,7 @@ int main(int argc, char* argv[])
 
     // setup global constants
     int64_t X = atof(argv[1]); // read float from command line
-    int64_t bs = 1 << 20;
+    int64_t bs = 1 << 16;
     int64_t alpha = 6;
 
     Primecount P(X, alpha, bs);
