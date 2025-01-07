@@ -416,10 +416,6 @@ int64_t Primecount::primecount(void)
         .done = false
     };
 
-    for (int i =0 ; i < 50; ++i)
-        cout << MU_PMIN[i] << " ";
-    cout << endl;
-
     // Ordinary leaves
     int64_t S0 = S0_compute();
     cout << "S0 = " << S0 << "\n";
@@ -490,16 +486,22 @@ int64_t Primecount::primecount(void)
 
 int main(int argc, char* argv[])
 {
-    if (argc != 2)
+    if (!(argc == 2 || argc == 4))
     {
-        cerr << "Usage: ./primecount 1e12\n";
+        cerr << "Usage: ./primecount X [BLOCKSIZE ALPHA]\n";
         return 1;
     }
 
     // setup global constants
-    int64_t X = atof(argv[1]); // read float from command line
-    int64_t bs = 1 << 24;
-    int64_t alpha = 10;
+    int64_t X = atof(argv[1]); // read float like 1e12 from command line
+    int64_t bs = 1 << 16;
+    int64_t alpha = 6;
+
+    if (argc == 4) // override defaults
+    {
+        bs = atof(argv[2]);
+        alpha = atoi(argv[3]);
+    }
 
     Primecount P(X, alpha, bs);
 
