@@ -61,7 +61,7 @@ struct PhiBlock
         phi_sum = fenwick_tree(ind);
         // does not reset phi_save!
         
-        cout << "block [" << zk1 << "," << zk << ")\n";
+        //cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
     // phi(y,b) compute 
@@ -155,12 +155,14 @@ struct Primecount
         cout << "IACBRTX = " << IACBRTX << endl;
         cout << "ISQRTX = " << ISQRTX << endl;
 
-        
+        // precompute PRIMES, PRIME_COUNT, MU_PMIN
         sieve_mu_prime();
         pre_phi_c();
 
         a = PRIME_COUNT[IACBRTX];
         cout << "a = " << a << endl;
+
+        assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
         astar = 1;
         while(PRIMES[astar+1] * PRIMES[astar+1] <= IACBRTX)
@@ -172,21 +174,25 @@ struct Primecount
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
     void sieve_mu_prime(void)
     {
-        // for larger values of X, need to subdivide the interval
-        MU_PMIN.assign(IACBRTX+1, 1);     // init to 1s
+        // Since p_{a+1} may be needed in S2, we introduce fudge factor
+        // and hope it's less than the prime gap
+
+        int64_t SIEVE_SIZE = IACBRTX + 200;
+        
+        MU_PMIN.assign(SIEVE_SIZE+1, 1);     // init to 1s
         MU_PMIN[1] = 1000;               // define pmin(1) = +inf
         PRIMES.push_back(1);             // p0 = 1 by convention
-        PRIME_COUNT.resize(IACBRTX+1);    // init values don't matter here
+        PRIME_COUNT.resize(SIEVE_SIZE+1);    // init values don't matter here
 
         int64_t i, j;
         int64_t prime_counter = 0;
 
         // sieve of Eratosthenes, modification to keep track of mu sign and pmin
-        for (j = 2; j <= IACBRTX; ++j)
+        for (j = 2; j <= SIEVE_SIZE; ++j)
         {
             if (MU_PMIN[j] == 1)   // unmarked, so it is prime
             {
-                for (i = j; i <= IACBRTX; i += j)
+                for (i = j; i <= SIEVE_SIZE; i += j)
                 {
                     MU_PMIN[i] = (MU_PMIN[i] == 1) ? -j : -MU_PMIN[i];
                 }
@@ -194,7 +200,7 @@ struct Primecount
         }
 
         // complete MU_PMIN, compute PRIMES and PRIME_COUNT
-        for (j = 2; j <= IACBRTX; ++j)
+        for (j = 2; j <= SIEVE_SIZE; ++j)
         {
             if (MU_PMIN[j] == -j)   // prime
             {
@@ -202,12 +208,14 @@ struct Primecount
                 ++prime_counter;
 
                 // mark multiples of p^2 as 0 for mu
-                for (i = j*j; i <= IACBRTX; i += j*j)
+                for (i = j*j; i <= SIEVE_SIZE; i += j*j)
                     MU_PMIN[i] = 0;
             }
 
             PRIME_COUNT[j] = prime_counter;
         }
+
+
     }
 
     // Precompute phi(x,c) 
@@ -493,6 +501,9 @@ int main(int argc, char* argv[])
     }
 
     // setup global constants
+    // TODO: dynamically adjust constants
+    // block size should be O(x^1/3)
+    // alpha = O(log^3 x)
     int64_t X = atof(argv[1]); // read float like 1e12 from command line
     int64_t bs = 1 << 16;
     int64_t alpha = 6;
