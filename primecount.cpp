@@ -298,13 +298,13 @@ struct Primecount
             {
                 if (y >= phi_block.zk) // step 7
                 {
-                    return; // pause until next block 
+                    break; // pause until next block 
                 }
                 else // step 8 (contribution using phi_block)
                 {
                     S2[b] += phi_block.sum_to(y, b);
                     --d2[b];
-                    continue; // repeat loop
+                    // repeat loop
                 }
             } 
             else // t = 0 or 1, easy leaves
@@ -314,7 +314,6 @@ struct Primecount
                     t[b] = 2;
                     // since t = 2 is set and d2 didn't change, the new loop
                     // will go to step 7
-                    continue;
                 }                   
                 else // step 3/5
                 {
@@ -329,11 +328,7 @@ struct Primecount
                         // step 4
                         if ((PRIMES[d_+1]*PRIMES[d_+1] <= X / pb1) || (d_ <= b))
                         {
-                            t[b] = 1;
-                            // step 6 
-                            S2[b] += l;
-                            --d2[b];
-                            continue;
+                            t[b] = 1; // goto step 6
                         }
                         else // step 5, clustered easy leaves
                         {
@@ -342,12 +337,11 @@ struct Primecount
                         }
                         
                     }
-                    else // t = 1, sparse easy leaves
+                    if (t[b] == 1) // t = 1, sparse easy leaves
                     {   
-                        // step 6 again
+                        // step 6
                         S2[b] += l;
                         --d2[b];
-                        continue; // not necessary
                     }
                 }
             }
@@ -453,7 +447,7 @@ int64_t Primecount::primecount(void)
         // For each b...
         // start at 2 to sieve out odd primes
         assert(C >= 2);
-        assert(C < astar);
+        assert(C <= astar);
         
         for (int64_t b = 2; b <= a; ++b)
         {
