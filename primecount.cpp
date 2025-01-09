@@ -58,7 +58,7 @@ struct PhiBlock
         zk1 = bsize * (k-1) + 1;
         zk = bsize * k + 1;
         ind.assign(bsize/2, 1); 
-        phi_sum = fenwick_tree(ind);
+        phi_sum.reset(ind);
         // does not reset phi_save!
         
         //cout << "block [" << zk1 << "," << zk << ")\n";

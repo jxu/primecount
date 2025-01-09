@@ -11,11 +11,17 @@ struct fenwick_tree
     size_t len; // 0-based len
     std::vector<int64_t> t; // 1-based tree, indexes [1:len]
 
-    fenwick_tree(std::vector<bool> const &a) :
-    len(a.size()), t(len + 1, 0) 
+    fenwick_tree(const std::vector<bool> &a) :
+    len(a.size()) 
     {
+        reset(a);
+    }
+
+    void reset(const std::vector<bool> &a)
+    {
+        t.assign(len + 1, 0);
         for (size_t i = 0; i < len; ++i)
-            add_to(i, a[i]);
+            add_to(i, a[i]);        
     }
 
     // 0-based input
