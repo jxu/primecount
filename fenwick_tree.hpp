@@ -20,8 +20,13 @@ struct fenwick_tree
     void reset(const std::vector<bool> &a)
     {
         t.assign(len + 1, 0);
-        for (size_t i = 0; i < len; ++i)
-            add_to(i, a[i]);        
+        // linear time construction
+        for (size_t i = 1; i <= len; ++i)
+        {
+            t[i] += a[i-1];
+            size_t r = i + (i & -i);
+            if (r <= len) t[r] += t[i];
+        }
     }
 
     // 0-based input
