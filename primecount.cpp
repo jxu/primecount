@@ -22,9 +22,9 @@ int64_t ceil_div(int64_t x, int64_t y)
 }
 
 // only ints
-int64_t cube(int64_t n)
+__int128 cube(int64_t n)
 {
-    return n * n * n;
+    return (__int128)n * n * n;
 }
 
 // Represents Bk = [zk1, zk) and functions to compute phi(y,b)
@@ -144,7 +144,9 @@ struct Primecount
         assert(ALPHA <= pow(X, 1/6.));
 
         // ensure floating point truncated values are exact floors
-        assert(ISQRTX*ISQRTX <= X && (ISQRTX+1)*(ISQRTX+1) > X);
+        // shouldn't overflow unless it's very close to the max
+        assert(ISQRTX*ISQRTX <= X);
+        assert((ISQRTX+1)*(ISQRTX+1) > X);
 
         assert(cube(IACBRTX)  <= cube(ALPHA) * X &&
                cube(IACBRTX+1) > cube(ALPHA) * X);
