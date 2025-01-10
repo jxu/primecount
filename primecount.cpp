@@ -150,7 +150,6 @@ struct Primecount
                cube(IACBRTX+1) > cube(ALPHA) * X);
 
 
-        cout << "Computing for X = " << X << endl;
         cout << "Z = " << Z << endl;
         cout << "IACBRTX = " << IACBRTX << endl;
         cout << "ISQRTX = " << ISQRTX << endl;
@@ -498,15 +497,21 @@ int main(int argc, char* argv[])
     // TODO: dynamically adjust constants
     // block size should be O(x^1/3)
     // alpha = O(log^3 x)
-    int64_t X = atof(argv[1]); // read float like 1e12 from command line
-    int64_t bs = 1 << 16;
-    int64_t alpha = 6;
+
+    // read float like 1e12 from command line (may not be exact for > 2^53)
+    int64_t X = atof(argv[1]); 
+    int64_t bs = 1LL << 20; // empirical good block size
+    int64_t alpha = cube(log10(X)) / 150; // empirical O(log^3 x) 
 
     if (argc == 4) // override defaults
     {
         bs = atof(argv[2]);
         alpha = atoi(argv[3]);
     }
+
+    cout << "Computing for X = " << X << endl;
+    cout << "Block size = " << bs << endl;
+    cout << "Alpha = " << alpha << endl;
 
     Primecount P(X, alpha, bs);
 
