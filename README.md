@@ -20,6 +20,10 @@ The following benchmarks used a block size of 2^20 and default alpha value. Comp
 | 10^17 | 5m50s  | 2623557157654233  |
 | 10^18 | 30m38s | 24739954287740860 |
 
+## Correctness
+
+The powers of 10 in the table match Table IV of the paper. Previously I had only tested smaller values, and starting from x = 10^15 had an overflow bug due to cubing some values. Running with GCC's -ftrapv can detect signed overflow. There was also an issue with crashing where Algorithm 2 sometimes needs $p_{a+1}$; this was mentioned in the paper but I missed it. I tried to use integer math mostly, but the most likely errors will be from imprecise floating point calculations like cbrt(x), where the input double can't even represent every integer past 2^53. I had some exact integer checks for these with __int128 but didn't look through it carefully. 
+
 ## Basics of the Meissel-Lehmer method
 
 Legendre (1808) was the first to notice $\pi(x)$ does not require explicitly determining all primes up to $x$, making use of inclusion-exclusion. The computation uses the Meissel (1870) method, improved by Lehmer (1959),
