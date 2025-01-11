@@ -59,5 +59,5 @@ $$
 
 Lehmer's original algorithm stops recursing at $\phi(x,c)$ for a pre-computed table with fixed $c$. Lagarias et al. show that  examines too many leaves, so the rest of the improvements are deciding when to split the node (recurse) and when not to (leaf), along with lots of fancy counting of the contributions of the leaves using a sieve. 
 
-The algorithm as a whole takes $O(x^{2/3})$ time, and the sieve is segmented to only use $O(\alpha \sqrt[3] x)$ memory. Without segmenting, it is more straightforward to sieve the entire interval $[1,x^{2/3} / \alpha)$. Over each interval $B_k$, the contribution of $\phi(y,b)$ for $y \in B_k$ and $c \le b < a$ is computed.
+The algorithm as a whole takes $O(x^{2/3})$ time, and the sieve is segmented to only use $O(\alpha \sqrt[3] x)$ memory. Without segmenting, it is more straightforward to sieve the entire interval $[1,z)$ where $z = x^{2/3} / \alpha$. Over each interval $B_k = [z_{k-1},z_k)$, the contribution of $\phi(y,b)$ for $y \in B_k$ and $c \le b < a$ is computed. A Fenwick tree is used to be able to compute this as a prefix sum (plus saved $\phi(z_{k-1}-1,b)$ from previous blocks) efficiently while also allowing fast updates to an indicator array from sieving out $p_b$.
 
