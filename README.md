@@ -28,6 +28,9 @@ The powers of 10 in the table match Table IV of the paper. Previously I had only
 
 Legendre (1808) was the first to notice $\pi(x)$ does not require explicitly determining all primes up to $x$, making use of inclusion-exclusion. The computation uses the Meissel (1870) method, improved by Lehmer (1959),
 Lagarias-Miller-Odlyzko (1985), and Deléglise-Rivat (1996). 
+It is combinatorial in nature and requires only elementary number theory, with some basics about prime factorization and the Möbius function's role in inclusion-exclusion. 
+
+Lagarias and Odlyzko (1987) described an analytic algorithm with better time complexity O(x^(1/2+ε)), but it goes way over my head and in practice has not been faster than the combinatorial method yet. [The implementation](https://arxiv.org/pdf/1203.5712) also uses interval arithmetic. Don't expect that project from me any time soon.
 
 Let $\phi(x,a)$ count the positive integers up to $x$ (inclusive) that are not divisible by any of the first $a$ primes, i.e. no small prime factors. Also let $\phi_k(x,a)$ count those integers with exactly $k$ prime factors (including repetitions).
 
