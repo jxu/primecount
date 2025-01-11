@@ -10,15 +10,16 @@ Alpha is a tuning parameter that trades fewer segmented sieve blocks to iterate 
 
 The following benchmarks used a block size of 2^20 and default alpha value. Compiled with g++ -O3 and run on my laptop (Ubuntu 22.04, GCC 11.4.0, i7-7700HQ). The CPU has 6 MiB of L3 cache, and experimentally a block size of 2^20, taking up 2^20 x (1/2 sieve size storing odd values) x 4 byte ints = 2 MiB, works well. 
 
-| x     | Time   | π(x)              |
-|-------|--------|-------------------|
-| 10^12 | 0.3s   | 37607912018       |
-| 10^13 | 1.0s   | 346065536839      |
-| 10^14 | 4.0s   | 3204941750802     |
-| 10^15 | 18s    | 29844570422669    |
-| 10^16 | 1m16s  | 279238341033925   |
-| 10^17 | 5m50s  | 2623557157654233  |
-| 10^18 | 30m38s | 24739954287740860 |
+| x     | Time   | π(x)               |
+|-------|--------|--------------------|
+| 10^12 | 0.3s   | 37607912018        |
+| 10^13 | 1.0s   | 346065536839       |
+| 10^14 | 4.0s   | 3204941750802      |
+| 10^15 | 18s    | 29844570422669     |
+| 10^16 | 1m16s  | 279238341033925    |
+| 10^17 | 5m50s  | 2623557157654233   |
+| 10^18 | 30m38s | 24739954287740860  |
+| 10^19 | 186m   | 234057667276344607 |
 
 ## Correctness
 
