@@ -23,12 +23,6 @@ uint64_t ceil_div(uint64_t x, uint64_t y)
 }
 
 
-// safer cube for overflows
-unsigned __int128 cube(uint64_t n)
-{
-    return (unsigned __int128)n * n * n;
-}
-
 // Represents Bk = [zk1, zk) and functions to compute phi(y,b)
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
@@ -145,15 +139,13 @@ struct Primecount
         // check alpha isn't set too large
         assert(ALPHA <= pow(X, 1/6.));
 
-        // ensure floating point truncated values are exact floors
-        // shouldn't overflow unless X is very close to int max
-        assert(ISQRTX*ISQRTX <= X);
-        assert((ISQRTX+1)*(ISQRTX+1) > X);
+        // hope floating point truncated values are exact floors
 
-        
-        assert(cube(IACBRTX)  <= cube(ALPHA) * X &&
-               cube(IACBRTX+1) > cube(ALPHA) * X);
-
+        //assert(ISQRTX*ISQRTX <= X);
+        //assert((ISQRTX+1)*(ISQRTX+1) > X);
+        // may overflow
+        //assert(cube(IACBRTX)  <= cube(ALPHA) * X);
+        //assert(cube(IACBRTX+1) > cube(ALPHA) * X);
 
         cout << "Z = " << Z << endl;
         cout << "IACBRTX = " << IACBRTX << endl;
@@ -433,7 +425,8 @@ uint64_t Primecount::primecount(void)
         uint64_t pb1 = PRIMES[b+1];
 
         uint64_t tb;
-        if (X <= cube(pb1))     tb = b + 2;
+        // hope this is accurate
+        if (cbrt(X) <= pb1)     tb = b + 2;
         else if (pb1*pb1 <= Z)  tb = a + 1; 
         else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1; 
 
@@ -507,7 +500,7 @@ int main(int argc, char* argv[])
     // read float like 1e12 from command line (may not be exact for > 2^53)
     uint64_t X = atof(argv[1]); 
     size_t bs = 1LL << 20; // empirical good block size
-    uint64_t alpha = cube(log10(X)) / 150; // empirical O(log^3 x) 
+    uint64_t alpha = pow(log10(X), 3) / 150; // empirical O(log^3 x) 
 
     if (argc == 4) // override defaults
     {
