@@ -95,16 +95,6 @@ struct PhiBlock
     }
 };
 
-// Phi2 saved variables
-struct Phi2
-{
-    uint64_t u;    // largest p_b not considered yet
-    uint64_t v;    // count number of primes up to sqrt(x)
-    uint64_t w;    // track first integer represented in aux
-    vector<bool> aux;  // auxiliary sieve to track primes found up to sqrt(x)
-    bool done; // flag for not accidentally running when terminated
-};
-
 struct Primecount
 {
     // tuning parameters
@@ -281,7 +271,7 @@ struct Primecount
     int64_t S2_iter(const uint64_t b, 
                     const PhiBlock& phi_block, 
                     uint64_t& d2b,
-                    char& t // different than tb
+                    char& t // t[b], different from other tb
     )
     {
         int64_t S2b = 0;
@@ -346,49 +336,55 @@ struct Primecount
         return S2b; // terminate
     }
 
+
+
     // Algorithm 3: computation of phi2(x,a)
     int64_t P2_iter(const PhiBlock& phi_block, 
-                    Phi2& P)
+                    uint64_t& u,
+                    uint64_t& v,
+                    uint64_t& w,
+                    vector<bool>& aux,
+                    bool& p2done)
     {
         int64_t P2 = 0;
         // step 3 loop (u decrement steps moved here)
-        for (; P.u > IACBRTX; --P.u)
+        for (; u > IACBRTX; --u)
         {
-            if (P.u < P.w)
+            if (u < w)
             {
                 // new aux sieve [w,u] of size IACBRTX+1
-                P.w = max((uint64_t)2, P.u - IACBRTX);
-                P.aux.assign(P.u - P.w + 1, true);
+                w = max((uint64_t)2, u - IACBRTX);
+                aux.assign(u - w + 1, true);
 
                 for (uint64_t i = 1; ; ++i) 
                 {
                     uint64_t p = PRIMES[i];
-                    if (p*p > P.u) break;
+                    if (p*p > u) break;
 
                     // only need to sieve values starting at p*p within [w,u]
-                    uint64_t jstart = max(p*p, p*ceil_div(P.w,p));
-                    for (uint64_t j = jstart; j <= P.u; j += p)
-                        P.aux[j-P.w] = false;
+                    uint64_t jstart = max(p*p, p*ceil_div(w,p));
+                    for (uint64_t j = jstart; j <= u; j += p)
+                        aux[j-w] = false;
                 }
             }
 
             // check u to track largest pb not considered yet
-            if (P.aux[P.u-P.w]) // prime
+            if (aux[u-w]) // prime
             {
-                uint64_t y = X / P.u;
+                uint64_t y = X / u;
                 if (y >= phi_block.zk) 
                     return P2; // finish this block
 
                 // phi(y,a)
                 uint64_t phi = phi_block.sum_to(y, a);
                 P2 += phi + a - 1;
-                ++P.v; // count new prime
+                ++v; // count new prime
             }                  
         }
 
         // step 3 terminate
-        P2 -= P.v * (P.v - 1) / 2;
-        P.done = true;
+        P2 -= v * (v - 1) / 2;
+        p2done = true;
         return P2;
     }
 
@@ -401,30 +397,27 @@ uint64_t Primecount::primecount(void)
     // Sum accumulators
     int64_t S0 = S0_iter();
 
+    cout << "S0 = " << S0 << "\n";
+
+    // S1
     int64_t S1 = 0;
     vector<uint64_t> m(astar, IACBRTX); // S1 decreasing m
-    
+
+    // S2 
     vector<int64_t> S2(a-1);
     vector<uint64_t> d2(a-1); // S2 decreasing d
     vector<char>  t(a-1);
 
-    uint64_t P2 = a * (a-1) / 2;
-
-
-    Phi2 phi2 = 
-    {
-        .u = ISQRTX,
-        .v = a,
-        .w = ISQRTX + 1,
-        .aux = vector<bool>(),
-        .done = false
-    };
+    // Phi2
+    uint64_t P2 = a * (a-1) / 2; // starting sum
+    uint64_t u = ISQRTX;         // largest p_b not considered yet
+    uint64_t v = a;              // count number of primes up to sqrt(x)
+    uint64_t w = u + 1;          // track first integer represented in aux
+    vector<bool> aux;            // auxiliary sieve to track primes found
+    bool p2done = false;         // flag for algorithm terminated
 
     PhiBlock phi_block(BS, a);
 
-    // Ordinary leaves
-    
-    cout << "S0 = " << S0 << "\n";
 
     // Init S2 vars
     for (uint64_t b = astar; b < a - 1; ++b) 
@@ -471,8 +464,8 @@ uint64_t Primecount::primecount(void)
                 S2[b] += S2_iter(b, phi_block, d2[b], t[b]);
 
             // phi2, after sieved out first a primes 
-            else if (b == a && !phi2.done)
-                P2 += P2_iter(phi_block, phi2);
+            else if (b == a && !p2done)
+                P2 += P2_iter(phi_block, u, v, w, aux, p2done);
 
             // for next block k
             phi_block.update_save(b);
@@ -500,9 +493,6 @@ int main(int argc, char* argv[])
     }
 
     // setup global constants
-    // TODO: dynamically adjust constants
-    // block size should be O(x^1/3)
-    // alpha = O(log^3 x)
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
     uint64_t X = atof(argv[1]); 
@@ -519,7 +509,7 @@ int main(int argc, char* argv[])
     cout << "Block size = " << bs << endl;
     cout << "Alpha = " << alpha << endl;
 
-    Primecount P(X, alpha, bs);
+    Primecount p(X, alpha, bs);
 
-    cout << P.primecount() << endl;
+    cout << p.primecount() << endl;
 }
