@@ -28,21 +28,23 @@ uint64_t ceil_div(uint64_t x, uint64_t y)
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
 struct PhiBlock
 {   
-    size_t bsize;              // (logical) block size
-    uint64_t zk1;                // z_{k-1}, block lower bound (inclusive)
-    uint64_t zk;                 // z_k, block upper bound (exclusive)
-    vector<bool> ind;           // 0/1 to track [pmin(y) > pb]
-    fenwick_tree phi_sum;       // data structure for efficient partial sums
-    vector<uint64_t> phi_save;   // phi_save(k,b) = phi(zk1-1,b) from prev block
+    size_t           bsize;     // (logical) block size
+    size_t           psize;     // physical block size
+    uint64_t         zk1;       // z_{k-1}, block lower bound (inclusive)
+    uint64_t         zk;        // z_k, block upper bound (exclusive)
+    vector<bool>     ind;       // 0/1 to track [pmin(y) > pb]
+    fenwick_tree     phi_sum;   // data structure for efficient partial sums
+    vector<uint64_t> phi_save;  // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
 
     // init block at k=1
     // TODO: phi_sum gets overwritten by first new_block anyway?
     PhiBlock(size_t bsize, uint64_t a) :
         bsize(bsize), 
+        psize(bsize / 2),
         zk1(1),
         zk(bsize + 1),
-        ind(bsize/2, 1), 
+        ind(psize, 1), 
         phi_sum(ind),
         phi_save(a + 1, 0)
     {
@@ -53,7 +55,7 @@ struct PhiBlock
     {
         zk1 = bsize * (k-1) + 1;
         zk = bsize * k + 1;
-        ind.assign(bsize/2, 1); 
+        ind.assign(psize, 1); 
         phi_sum.reset(ind);
         // does not reset phi_save!
         
@@ -84,12 +86,12 @@ struct PhiBlock
                 phi_sum.decrease((j-zk1)/2);
                 ind[(j-zk1)/2] = 0;
             }
-        }        
+        }
     }
 
     void update_save(uint64_t b)
     {
-        phi_save[b] += phi_sum.sum_to(bsize/2-1);
+        phi_save[b] += phi_sum.sum_to(psize-1);
     }
 };
 
@@ -106,21 +108,21 @@ struct Phi2
 struct Primecount
 {
     // tuning parameters
-    uint64_t ALPHA;       // tuning parameter
-    uint64_t C = 8;       // precompute phi_c parameter
-    size_t BS; // sieve block size   
+    uint64_t ALPHA;     // tuning parameter
+    uint64_t C = 8;     // precompute phi_c parameter
+    size_t BS;          // sieve block size   
 
     // global constants
-    uint64_t X;       // Main value to compute pi(X) for
-    size_t Q;       // phi_c table size, shouldn't be too large
-    uint64_t Z;       // X^(2/3) / alpha (approx)
-    uint64_t ISQRTX;  // floor(sqrt(X))
-    uint64_t IACBRTX; // floor(alpha cbrt(X))
-    uint64_t a;       // pi(alpha cbrt(X)) 
-    uint64_t astar;   // p_a*^2 = alpha cbrt(X), i.e. a* = pi(sqrt(alpha cbrt X))
+    uint64_t X;         // Main value to compute pi(X) for
+    size_t Q;           // phi_c table size, shouldn't be too large
+    uint64_t Z;         // X^(2/3) / alpha (approx)
+    uint64_t ISQRTX;    // floor(sqrt(X))
+    uint64_t IACBRTX;   // floor(alpha cbrt(X))
+    uint64_t a;         // pi(alpha cbrt(X)) 
+    uint64_t astar;     // p_a*^2 = alpha cbrt(X), i.e. a* = pi(sqrt(alpha cbrt X))
 
     // precomputed tables (assume alpha cbrt X < INT32_MAX)
-    vector<int32_t> MU_PMIN;     // mu(n) pmin(n) for [1,acbrtx] 
+    vector<int32_t> MU_PMIN;      // mu(n) pmin(n) for [1,acbrtx] 
     vector<uint32_t> PRIMES;      // primes <= acbrtx
     vector<uint32_t> PRIME_COUNT; // pi(x) over [1,acbrtx] 
     vector<uint32_t> PHI_C;       // phi(x,c) over [1,Q]    
@@ -176,10 +178,10 @@ struct Primecount
 
         size_t SIEVE_SIZE = IACBRTX + 200;
         
-        MU_PMIN.assign(SIEVE_SIZE+1, 1);     // init to 1s
-        MU_PMIN[1] = 1000;               // define pmin(1) = +inf
-        PRIMES.push_back(1);             // p0 = 1 by convention
-        PRIME_COUNT.resize(SIEVE_SIZE+1);    // init values don't matter here
+        MU_PMIN.assign(SIEVE_SIZE+1, 1);    // init to 1s
+        MU_PMIN[1] = 1000;                  // define pmin(1) = +inf
+        PRIMES.push_back(1);                // p0 = 1 by convention
+        PRIME_COUNT.resize(SIEVE_SIZE+1);   // init values don't matter here
 
         uint64_t prime_counter = 0;
 
