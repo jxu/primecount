@@ -154,8 +154,12 @@ struct Primecount
         cout << "ISQRTX = " << ISQRTX << endl;
 
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
-        sieve_mu_prime();
-        pre_phi_c();
+
+        // Since p_{a+1} may be needed in S2, we introduce fudge factor
+        // and hope it's less than the prime gap
+        size_t SIEVE_SIZE = IACBRTX + 200;
+        sieve_mu_prime(SIEVE_SIZE);
+        pre_phi_c(C);
 
         a = PRIME_COUNT[IACBRTX];
         cout << "a = " << a << endl;
@@ -171,13 +175,8 @@ struct Primecount
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
-    void sieve_mu_prime(void)
+    void sieve_mu_prime(size_t SIEVE_SIZE)
     {
-        // Since p_{a+1} may be needed in S2, we introduce fudge factor
-        // and hope it's less than the prime gap
-
-        size_t SIEVE_SIZE = IACBRTX + 200;
-        
         MU_PMIN.assign(SIEVE_SIZE+1, 1);    // init to 1s
         MU_PMIN[1] = 1000;                  // define pmin(1) = +inf
         PRIMES.push_back(1);                // p0 = 1 by convention
@@ -212,12 +211,10 @@ struct Primecount
 
             PRIME_COUNT[j] = prime_counter;
         }
-
-
     }
 
     // Precompute phi(x,c) 
-    void pre_phi_c(void)
+    void pre_phi_c(uint64_t C)
     {
         // compute Q as product of first C primes
         Q = 1;
@@ -240,7 +237,7 @@ struct Primecount
     }
 
     // contribution of ordinary leaves to phi(x,a)
-    int64_t S0_compute(void)
+    int64_t S0_iter(void)
     {
         int64_t S0 = 0;
         for (uint64_t n = 1; n <= IACBRTX; ++n)
@@ -258,41 +255,43 @@ struct Primecount
     }
 
     // Algorithm 1
-    int64_t S1_iter(uint64_t b, const PhiBlock& phi_block, vector<uint64_t>& m)
+    int64_t S1_iter(const uint64_t b, 
+                    const PhiBlock& phi_block, 
+                    uint64_t& mb)
     {
         int64_t S1 = 0;
         uint64_t pb1 = PRIMES[b+1];
         // m decreasing
-        for (; m[b] * pb1 > IACBRTX; --m[b])
+        for (; mb * pb1 > IACBRTX; --mb)
         {
-            uint64_t y = X / (m[b] * pb1);
+            uint64_t y = X / (mb * pb1);
 
             assert(y >= phi_block.zk1);
             if (y >= phi_block.zk) break;
 
-            if ((uint64_t)abs(MU_PMIN[m[b]]) > pb1)
+            if ((uint64_t)abs(MU_PMIN[mb]) > pb1)
             {
-                S1 -= sgn(MU_PMIN[m[b]]) * phi_block.sum_to(y, b);
+                S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y, b);
             }
         }        
         return S1;
     }
 
     // Algorithm 2 hell
-    void S2_iter(uint64_t b, 
-                 const PhiBlock& phi_block, 
-                 vector<uint64_t>& d2,
-                 vector<char>& t,
-                 vector<uint64_t>& S2
+    int64_t S2_iter(const uint64_t b, 
+                    const PhiBlock& phi_block, 
+                    uint64_t& d2b,
+                    char& t // different than tb
     )
     {
+        int64_t S2b = 0;
         uint64_t pb1 = PRIMES[b+1];
         
-        while (d2[b] > b + 1) // step 2, main loop
+        while (d2b > b + 1) // step 2, main loop
         {
-            uint64_t y = X / (pb1 * PRIMES[d2[b]]);
+            uint64_t y = X / (pb1 * PRIMES[d2b]);
 
-            if (t[b] == 2) // hard leaves
+            if (t == 2) // hard leaves
             {
                 if (y >= phi_block.zk) // step 7
                 {
@@ -300,8 +299,8 @@ struct Primecount
                 }
                 else // step 8 (contribution using phi_block)
                 {
-                    S2[b] += phi_block.sum_to(y, b);
-                    --d2[b];
+                    S2b += phi_block.sum_to(y, b);
+                    --d2b;
                     // repeat loop
                 }
             } 
@@ -309,7 +308,7 @@ struct Primecount
             {
                 if (y >= IACBRTX) 
                 {
-                    t[b] = 2;
+                    t = 2;
                     // since t = 2 is set and d2 didn't change, the new loop
                     // will go to step 7
                 }                   
@@ -317,7 +316,7 @@ struct Primecount
                 {
                     uint64_t l = PRIME_COUNT[y] - b + 1;
                     
-                    if (t[b] == 0) // step 3
+                    if (t == 0) // step 3
                     {
                         // d' + 1 is the smallest d for which (12) holds:
                         // phi(x / (pb1*pd), b) = pi(x / (pb1*pd)) - b + 1
@@ -326,30 +325,32 @@ struct Primecount
                         // step 4
                         if ((PRIMES[d_+1]*PRIMES[d_+1] <= X / pb1) || (d_ <= b))
                         {
-                            t[b] = 1; // goto step 6
+                            t = 1; // goto step 6
                         }
                         else // step 5, clustered easy leaves
                         {
-                            S2[b] += l * (d2[b] - d_);
-                            d2[b] = d_;
+                            S2b += l * (d2b - d_);
+                            d2b = d_;
                         }
                         
                     }
-                    if (t[b] == 1) // t = 1, sparse easy leaves
+                    if (t == 1) // t = 1, sparse easy leaves
                     {   
                         // step 6
-                        S2[b] += l;
-                        --d2[b];
+                        S2b += l;
+                        --d2b;
                     }
                 }
             }
         }
-        return; // terminate
+        return S2b; // terminate
     }
 
     // Algorithm 3: computation of phi2(x,a)
-    void P2_iter(const PhiBlock& phi_block, Phi2& P, uint64_t& P2)
+    int64_t P2_iter(const PhiBlock& phi_block, 
+                    Phi2& P)
     {
+        int64_t P2 = 0;
         // step 3 loop (u decrement steps moved here)
         for (; P.u > IACBRTX; --P.u)
         {
@@ -376,7 +377,7 @@ struct Primecount
             {
                 uint64_t y = X / P.u;
                 if (y >= phi_block.zk) 
-                    return; // finish this block
+                    return P2; // finish this block
 
                 // phi(y,a)
                 uint64_t phi = phi_block.sum_to(y, a);
@@ -388,7 +389,7 @@ struct Primecount
         // step 3 terminate
         P2 -= P.v * (P.v - 1) / 2;
         P.done = true;
-        return;
+        return P2;
     }
 
     uint64_t primecount();
@@ -398,15 +399,17 @@ struct Primecount
 uint64_t Primecount::primecount(void)
 {
     // Sum accumulators
+    int64_t S0 = S0_iter();
+
     int64_t S1 = 0;
-    vector<uint64_t> S2(a-1);
+    vector<uint64_t> m(astar, IACBRTX); // S1 decreasing m
+    
+    vector<int64_t> S2(a-1);
+    vector<uint64_t> d2(a-1); // S2 decreasing d
     vector<char>  t(a-1);
+
     uint64_t P2 = a * (a-1) / 2;
 
-    PhiBlock phi_block(BS, a);
-
-    vector<uint64_t> m(astar, IACBRTX); // S1 decreasing m
-    vector<uint64_t> d2(a-1); // S2 decreasing d
 
     Phi2 phi2 = 
     {
@@ -417,8 +420,10 @@ uint64_t Primecount::primecount(void)
         .done = false
     };
 
+    PhiBlock phi_block(BS, a);
+
     // Ordinary leaves
-    int64_t S0 = S0_compute();
+    
     cout << "S0 = " << S0 << "\n";
 
     // Init S2 vars
@@ -459,15 +464,15 @@ uint64_t Primecount::primecount(void)
           
             // S1 leaves, b in [C, astar)
             if (C <= b && b < astar)
-                S1 += S1_iter(b, phi_block, m);
+                S1 += S1_iter(b, phi_block, m[b]); // pass m[b] by ref
 
             // S2 leaves, b in [astar, a-1)
             else if (astar <= b && b < a - 1)     
-                S2_iter(b, phi_block, d2, t, S2);
+                S2[b] += S2_iter(b, phi_block, d2[b], t[b]);
 
             // phi2, after sieved out first a primes 
             else if (b == a && !phi2.done)
-                P2_iter(phi_block, phi2, P2);
+                P2 += P2_iter(phi_block, phi2);
 
             // for next block k
             phi_block.update_save(b);
