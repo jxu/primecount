@@ -109,7 +109,7 @@ struct Primecount
     uint64_t ISQRTX;    // floor(sqrt(X))
     uint64_t IACBRTX;   // floor(alpha cbrt(X))
     uint64_t a;         // pi(alpha cbrt(X)) 
-    uint64_t astar;     // p_a*^2 = alpha cbrt(X), i.e. a* = pi(sqrt(alpha cbrt X))
+    uint64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
 
     // precomputed tables (assume alpha cbrt X < INT32_MAX)
     vector<int32_t> MU_PMIN;      // mu(n) pmin(n) for [1,acbrtx] 
@@ -149,19 +149,26 @@ struct Primecount
         // and hope it's less than the prime gap
         size_t SIEVE_SIZE = IACBRTX + 200;
         sieve_mu_prime(SIEVE_SIZE);
-        pre_phi_c(C);
+
 
         a = PRIME_COUNT[IACBRTX];
         cout << "a = " << a << endl;
 
         assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
-        // TODO: more efficient?
+        // good enough 
         astar = 1;
         while(PRIMES[astar+1] * PRIMES[astar+1] <= IACBRTX)
             ++astar;
 
         cout << "a* = " << astar << endl;
+        C = min(astar, C);
+        cout << "C = " << C << endl;
+
+        assert(C >= 2);
+        assert(C <= astar);
+        
+        pre_phi_c(C);
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -444,8 +451,6 @@ uint64_t Primecount::primecount(void)
 
         // For each b...
         // start at 2 to sieve out odd primes
-        assert(C >= 2);
-        assert(C <= astar);
         
         for (uint64_t b = 2; b <= a; ++b)
         {
@@ -497,7 +502,7 @@ int main(int argc, char* argv[])
     // read float like 1e12 from command line (may not be exact for > 2^53)
     uint64_t X = atof(argv[1]); 
     size_t bs = 1LL << 20; // empirical good block size
-    uint64_t alpha = pow(log10(X), 3) / 150; // empirical O(log^3 x) 
+    uint64_t alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x) 
 
     if (argc == 4) // override defaults
     {
