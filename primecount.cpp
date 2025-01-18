@@ -1,3 +1,7 @@
+// Compile:
+// g++ -O3 -Wall -Wextra -o primecount primecount.cpp
+// More checks: add -fwrapv and -D_GLIBCXX_DEBUG
+
 #include <vector>
 #include <iostream>
 #include <cmath>
@@ -7,6 +11,7 @@
 
 using namespace std;
 
+bool PRINT = true; // show intermediates and final result
 
 // signum: returns -1, 0, or 1
 int64_t sgn(int64_t x)
@@ -139,10 +144,12 @@ struct Primecount
         //assert(cube(IACBRTX)  <= cube(ALPHA) * X);
         //assert(cube(IACBRTX+1) > cube(ALPHA) * X);
 
-        cout << "Z = " << Z << endl;
-        cout << "IACBRTX = " << IACBRTX << endl;
-        cout << "ISQRTX = " << ISQRTX << endl;
-
+        if (PRINT)
+        {
+            cout << "Z = " << Z << endl;
+            cout << "IACBRTX = " << IACBRTX << endl;
+            cout << "ISQRTX = " << ISQRTX << endl;
+        }
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
 
         // Since p_{a+1} may be needed in S2, we introduce fudge factor
@@ -152,7 +159,6 @@ struct Primecount
 
 
         a = PRIME_COUNT[IACBRTX];
-        cout << "a = " << a << endl;
 
         assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
@@ -161,9 +167,15 @@ struct Primecount
         while(PRIMES[astar+1] * PRIMES[astar+1] <= IACBRTX)
             ++astar;
 
-        cout << "a* = " << astar << endl;
+        
         C = min(astar, C);
-        cout << "C = " << C << endl;
+        
+        if (PRINT)
+        {
+            cout << "a = " << a << endl;
+            cout << "a* = " << astar << endl;
+            cout << "C = " << C << endl;
+        }
 
         assert(C >= 2);
         assert(C <= astar);
@@ -404,7 +416,8 @@ uint64_t Primecount::primecount(void)
     // Sum accumulators
     int64_t S0 = S0_iter();
 
-    cout << "S0 = " << S0 << "\n";
+    if (PRINT)
+        cout << "S0 = " << S0 << "\n";
 
     // S1
     int64_t S1 = 0;
@@ -482,10 +495,13 @@ uint64_t Primecount::primecount(void)
         S2_total += x;
 
     // accumulate final results
-    cout << "S1 = " << S1 << endl;
-    cout << "S2 = " << S2_total << endl;
-    cout << "P2 = " << P2 << endl;
-
+    if (PRINT) 
+    {
+        cout << "S1 = " << S1 << endl;
+        cout << "S2 = " << S2_total << endl;
+        cout << "P2 = " << P2 << endl;
+    }
+    
     return S0 + S1 + S2_total + a - 1 - P2;
 }
 
@@ -510,11 +526,15 @@ int main(int argc, char* argv[])
         alpha = atoi(argv[3]);
     }
 
-    cout << "Computing for X = " << X << endl;
-    cout << "Block size = " << bs << endl;
-    cout << "Alpha = " << alpha << endl;
-
+    if (PRINT)
+    {
+        cout << "Computing for X = " << X << endl;
+        cout << "Block size = " << bs << endl;
+        cout << "Alpha = " << alpha << endl;
+    }
+    
     Primecount p(X, alpha, bs);
 
-    cout << p.primecount() << endl;
+    if (PRINT)
+        cout << p.primecount() << endl;
 }
