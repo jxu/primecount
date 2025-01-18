@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
+#include <algorithm>
 
 #include "fenwick_tree.hpp"
 
@@ -505,15 +506,54 @@ uint64_t Primecount::primecount(void)
     return S0 + S1 + S2_total + a - 1 - P2;
 }
 
+void test(void)
+{
+    PRINT = false;
+    const uint64_t TEST_MAX = 1e5;
+    cout << "Entering test mode up to " << TEST_MAX << endl;
+
+    // Sieve to generate primes for test
+    vector<uint64_t> primes;
+    vector<bool> p(TEST_MAX+1, 1);
+    for (uint64_t i = 2; i <= TEST_MAX; ++i)
+    {
+        if (p[i]) 
+        {   
+            primes.push_back(i);
+            //cout << i << endl;
+            for (uint64_t j = 2*i; j <= TEST_MAX; j += i)
+            {
+                p[j] = 0;
+            }
+        }
+    }
+
+    // primecount only works for not too small input
+    for (uint64_t i = 1000; i <= TEST_MAX; ++i)
+    {
+        Primecount P(i, 2, 1 << 16);
+    
+        auto upper = upper_bound(primes.begin(), primes.end(), i);
+        uint64_t pc = distance(primes.begin(), upper);
+
+        assert(P.primecount() == pc);
+    }
+}
+
 int main(int argc, char* argv[])
 {
+    if (argc == 1)
+    {
+        test();
+        return 0;
+    }    
+
     if (!(argc == 2 || argc == 4))
     {
         cerr << "Usage: ./primecount X [BLOCKSIZE ALPHA]\n";
         return 1;
     }
 
-    // setup global constants
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
     uint64_t X = atof(argv[1]); 
