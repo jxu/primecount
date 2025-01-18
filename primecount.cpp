@@ -120,8 +120,14 @@ struct Primecount
     // precomputed tables (assume alpha cbrt X < INT32_MAX)
     vector<int32_t> MU_PMIN;      // mu(n) pmin(n) for [1,acbrtx] 
     vector<uint32_t> PRIMES;      // primes <= acbrtx
-    vector<uint32_t> PRIME_COUNT; // pi(x) over [1,acbrtx] 
+    vector<uint32_t> PRIME_COUNT2; // pi(x) over [1,acbrtx] (odd values)
     vector<uint32_t> PHI_C;       // phi(x,c) over [1,Q]    
+
+    // index into small prime count table
+    uint32_t PC_SMALL(uint32_t y) 
+    {
+        return PRIME_COUNT2[(y-1)/2];
+    }
 
 
     Primecount(uint64_t x, uint64_t alpha, size_t bs) :
@@ -159,7 +165,7 @@ struct Primecount
         sieve_mu_prime(SIEVE_SIZE);
 
 
-        a = PRIME_COUNT[IACBRTX];
+        a = PC_SMALL(IACBRTX);
 
         assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
@@ -190,7 +196,7 @@ struct Primecount
         MU_PMIN.assign(SIEVE_SIZE+1, 1);    // init to 1s
         MU_PMIN[1] = 1000;                  // define pmin(1) = +inf
         PRIMES.push_back(1);                // p0 = 1 by convention
-        PRIME_COUNT.resize(SIEVE_SIZE+1);   // init values don't matter here
+        PRIME_COUNT2.resize((SIEVE_SIZE+1)/2); // init values don't matter here
 
         uint64_t prime_counter = 0;
 
@@ -219,7 +225,7 @@ struct Primecount
                     MU_PMIN[i] = 0;
             }
 
-            PRIME_COUNT[j] = prime_counter;
+            PRIME_COUNT2[(j-1)/2] = prime_counter;
         }
     }
 
@@ -324,13 +330,13 @@ struct Primecount
                 }                   
                 else // step 3/5
                 {
-                    uint64_t l = PRIME_COUNT[y] - b + 1;
+                    uint64_t l = PC_SMALL(y) - b + 1;
                     
                     if (t == 0) // step 3
                     {
                         // d' + 1 is the smallest d for which (12) holds:
                         // phi(x / (pb1*pd), b) = pi(x / (pb1*pd)) - b + 1
-                        uint64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b+l])];
+                        uint64_t d_ = PC_SMALL(X / (pb1 * PRIMES[b+l]));
 
                         // step 4
                         if ((PRIMES[d_+1]*PRIMES[d_+1] <= X / pb1) || (d_ <= b))
@@ -449,7 +455,7 @@ uint64_t Primecount::primecount(void)
         // hope this is accurate
         if (cbrt(X) <= pb1)     tb = b + 2;
         else if (pb1*pb1 <= Z)  tb = a + 1; 
-        else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1; 
+        else                    tb = PC_SMALL(X / (pb1*pb1)) + 1; 
 
         d2[b] = tb - 1;
         S2[b] = a - d2[b];
