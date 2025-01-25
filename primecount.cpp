@@ -33,22 +33,34 @@ struct PhiBlock
     uint64_t         zk1;       // z_{k-1}, block lower bound (inclusive)
     uint64_t         zk;        // z_k, block upper bound (exclusive)
     vector<bool>     ind;       // 0/1 to track [pmin(y) > pb]
-    fenwick_tree     phi_sum;   // data structure for efficient partial sums
+    fenwick_tree     phi_tree;   // data structure for efficient partial sums
     vector<uint64_t> phi_save;  // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
+    vector<uint32_t> phi_array; 
+    uint64_t         thresh;
+    uint64_t         bl;
 
     // init block at k=1
     // TODO: phi_sum gets overwritten by first new_block anyway?
-    PhiBlock(size_t bsize, uint64_t a) :
+    PhiBlock(size_t bsize, uint64_t a, uint64_t thresh) :
         bsize(bsize), 
         psize(bsize / 2),
         zk1(1),
         zk(bsize + 1),
         ind(psize, 1), 
-        phi_sum(ind),
-        phi_save(a + 1, 0)
+        phi_tree(ind),
+        phi_save(a + 1, 0),
+        phi_array(psize),
+        thresh(thresh),
+        bl(66)
     {
         assert(bsize % 2 == 0); // requires even size
+    }
+
+    bool use_array(const uint64_t b) const
+    {
+        return (zk1 < 2 && b <= bl);    
+    
     }
 
     void new_block(uint64_t k)
@@ -56,7 +68,9 @@ struct PhiBlock
         zk1 = bsize * (k-1) + 1;
         zk = bsize * k + 1;
         ind.assign(psize, 1); 
-        phi_sum.reset(ind);
+
+        phi_tree.reset(ind);
+
         // does not reset phi_save!
         
         //cout << "block [" << zk1 << "," << zk << ")\n";
@@ -67,11 +81,14 @@ struct PhiBlock
     {
         assert(y >= zk1);
         assert(y < zk);
-        return phi_save[b] + phi_sum.sum_to((y - zk1)/2);
+        if (use_array(b))
+            return phi_save[b] + phi_array[(y-zk1)/2];
+        else
+            return phi_save[b] + phi_tree.sum_to((y - zk1)/2);
     }
 
     // sieve out p_b for this block
-    void sieve_out(uint64_t pb)
+    void sieve_out(uint64_t pb, uint64_t b)
     {
         assert(pb > 2);
 
@@ -83,15 +100,28 @@ struct PhiBlock
         {
             if (ind[(j-zk1)/2])   // not marked yet
             {
-                phi_sum.decrease((j-zk1)/2);
+                // always update phi_tree even when using phi_array
+                phi_tree.decrease((j-zk1)/2);
+                
                 ind[(j-zk1)/2] = 0;
             }
+        }
+
+        // recreate phi_array
+        if (use_array(b))
+        {
+            phi_array[0] = ind[0];
+            for (uint64_t i = 1; i < psize; ++i)
+                phi_array[i] = phi_array[i-1] + ind[i];
         }
     }
 
     void update_save(uint64_t b)
     {
-        phi_save[b] += phi_sum.sum_to(psize-1);
+        if (use_array(b))
+            phi_save[b] += phi_array[psize-1];
+        else
+            phi_save[b] += phi_tree.sum_to(psize-1);
     }
 };
 
@@ -423,7 +453,7 @@ uint64_t Primecount::primecount(void)
     vector<bool> aux;            // auxiliary sieve to track primes found
     bool p2done = false;         // flag for algorithm terminated
 
-    PhiBlock phi_block(BS, a);
+    PhiBlock phi_block(BS, a, 2);
 
 
     // Init S2 vars
@@ -458,7 +488,7 @@ uint64_t Primecount::primecount(void)
             uint64_t pb = PRIMES[b];
 
             // sieve out p_b for this block (including <= C)
-            phi_block.sieve_out(pb);
+            phi_block.sieve_out(pb, b);
           
             // S1 leaves, b in [C, astar)
             if (C <= b && b < astar)
