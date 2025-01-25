@@ -1,0 +1,60 @@
+---
+title: "Phi calls"
+output: html_notebook
+---
+
+Import phi(y, b) calls for x = 10^12
+
+```{r}
+library(tidyverse)
+
+phi <- read_csv("phi.csv")
+```
+
+# Analysis
+
+b = C = 8 has many calls, decreasing until b = 431, then b = a = 10453 has many calls
+
+- Alg S1 for C <= b < a* = 67, decreasing num calls from 17090 to 10386
+- Alg S2 for a* <= b < a - 1, decreasing num calls from 2890 down to 1 call at b = 431
+- Alg P2 for b == a, 68045 calls
+
+
+
+```{r}
+table(phi$b)
+```
+
+Plot calls 
+
+```{r}
+acbrt <- 11 * 1e4
+bsize <- 2^20
+blocks <- seq(1, 1e7, bsize)
+
+phi2 <- phi %>% filter(b < 1000)
+ggplot(phi2, aes(x = y, y = b)) + 
+  geom_bin_2d(breaks=list(blocks, seq(0,500,10))) + 
+  scale_x_continuous(breaks = blocks, labels = ~ paste0("0x", as.hexmode(.))) +
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+Finer detail 
+
+```{r}
+ggplot(phi2, aes(x = y, y = b)) + 
+  geom_bin_2d(binwidth=c(1e5,10)) 
+```
+
+
+Plot calls by block for selected b values
+
+```{r}
+phi %>% filter(b %in% c(8, 100, 10453)) %>%
+  ggplot(aes(y, fill = factor(b))) +
+  geom_histogram(closed="right", breaks = blocks, position="dodge") + 
+  geom_vline(xintercept = acbrt) + 
+  scale_x_continuous(breaks = blocks, labels = \(x) as.hexmode(x)) +
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
