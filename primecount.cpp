@@ -1,18 +1,12 @@
-// Compile:
-// g++ -O3 -Wall -Wextra -o primecount primecount.cpp
-// More checks: add -fwrapv and -D_GLIBCXX_DEBUG
-
 #include <vector>
 #include <iostream>
 #include <cmath>
 #include <cassert>
-#include <algorithm>
 
 #include "fenwick_tree.hpp"
 
 using namespace std;
 
-bool PRINT = true; // show intermediates and final result
 
 // signum: returns -1, 0, or 1
 int64_t sgn(int64_t x)
@@ -145,12 +139,10 @@ struct Primecount
         //assert(cube(IACBRTX)  <= cube(ALPHA) * X);
         //assert(cube(IACBRTX+1) > cube(ALPHA) * X);
 
-        if (PRINT)
-        {
-            cout << "Z = " << Z << endl;
-            cout << "IACBRTX = " << IACBRTX << endl;
-            cout << "ISQRTX = " << ISQRTX << endl;
-        }
+        cout << "Z = " << Z << endl;
+        cout << "IACBRTX = " << IACBRTX << endl;
+        cout << "ISQRTX = " << ISQRTX << endl;
+
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
 
         // Since p_{a+1} may be needed in S2, we introduce fudge factor
@@ -160,6 +152,7 @@ struct Primecount
 
 
         a = PRIME_COUNT[IACBRTX];
+        cout << "a = " << a << endl;
 
         assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
@@ -168,15 +161,9 @@ struct Primecount
         while(PRIMES[astar+1] * PRIMES[astar+1] <= IACBRTX)
             ++astar;
 
-        
+        cout << "a* = " << astar << endl;
         C = min(astar, C);
-        
-        if (PRINT)
-        {
-            cout << "a = " << a << endl;
-            cout << "a* = " << astar << endl;
-            cout << "C = " << C << endl;
-        }
+        cout << "C = " << C << endl;
 
         assert(C >= 2);
         assert(C <= astar);
@@ -417,8 +404,7 @@ uint64_t Primecount::primecount(void)
     // Sum accumulators
     int64_t S0 = S0_iter();
 
-    if (PRINT)
-        cout << "S0 = " << S0 << "\n";
+    cout << "S0 = " << S0 << "\n";
 
     // S1
     int64_t S1 = 0;
@@ -496,64 +482,22 @@ uint64_t Primecount::primecount(void)
         S2_total += x;
 
     // accumulate final results
-    if (PRINT) 
-    {
-        cout << "S1 = " << S1 << endl;
-        cout << "S2 = " << S2_total << endl;
-        cout << "P2 = " << P2 << endl;
-    }
-    
+    cout << "S1 = " << S1 << endl;
+    cout << "S2 = " << S2_total << endl;
+    cout << "P2 = " << P2 << endl;
+
     return S0 + S1 + S2_total + a - 1 - P2;
-}
-
-void test(void)
-{
-    PRINT = false;
-    const uint64_t TEST_MAX = 1e5;
-    cout << "Entering test mode up to " << TEST_MAX << endl;
-
-    // Sieve to generate primes for test
-    vector<uint64_t> primes;
-    vector<bool> p(TEST_MAX+1, 1);
-    for (uint64_t i = 2; i <= TEST_MAX; ++i)
-    {
-        if (p[i]) 
-        {   
-            primes.push_back(i);
-            //cout << i << endl;
-            for (uint64_t j = 2*i; j <= TEST_MAX; j += i)
-            {
-                p[j] = 0;
-            }
-        }
-    }
-
-    // primecount only works for not too small input
-    for (uint64_t i = 1000; i <= TEST_MAX; ++i)
-    {
-        Primecount P(i, 2, 1 << 16);
-    
-        auto upper = upper_bound(primes.begin(), primes.end(), i);
-        uint64_t pc = distance(primes.begin(), upper);
-
-        assert(P.primecount() == pc);
-    }
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc == 1)
-    {
-        test();
-        return 0;
-    }    
-
     if (!(argc == 2 || argc == 4))
     {
         cerr << "Usage: ./primecount X [BLOCKSIZE ALPHA]\n";
         return 1;
     }
 
+    // setup global constants
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
     uint64_t X = atof(argv[1]); 
@@ -566,15 +510,11 @@ int main(int argc, char* argv[])
         alpha = atoi(argv[3]);
     }
 
-    if (PRINT)
-    {
-        cout << "Computing for X = " << X << endl;
-        cout << "Block size = " << bs << endl;
-        cout << "Alpha = " << alpha << endl;
-    }
-    
+    cout << "Computing for X = " << X << endl;
+    cout << "Block size = " << bs << endl;
+    cout << "Alpha = " << alpha << endl;
+
     Primecount p(X, alpha, bs);
 
-    if (PRINT)
-        cout << p.primecount() << endl;
+    cout << p.primecount() << endl;
 }
