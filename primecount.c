@@ -44,7 +44,7 @@ typedef uint32_t fenwick_tree[PSIZE+1];
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-void fenwick_reset(fenwick_tree t, bool a[PSIZE])
+void fenwick_reset(fenwick_tree t, bool* a)
 {
     memset(t, 0, PSIZE+1);
 
@@ -96,11 +96,21 @@ typedef struct
 {   
     uint64_t         zk1;       // z_{k-1}, block lower bound (inclusive)
     uint64_t         zk;        // z_k, block upper bound (exclusive)
-    bool             ind[PSIZE];       // 0/1 to track [pmin(y) > pb]
-    fenwick_tree     phi_sum;   // data structure for efficient partial sums
+    bool*             ind;       // 0/1 to track [pmin(y) > pb]
+    uint32_t*     phi_sum;   // data structure for efficient partial sums
     uint64_t* phi_save;  // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
 } PhiBlock;
+
+PhiBlock* phi_init(uint64_t a)
+{
+    PhiBlock* p = malloc(sizeof(PhiBlock));
+    p->ind = malloc(PSIZE * sizeof(bool));
+    p->phi_sum = calloc(PSIZE+1, sizeof(uint32_t));
+    p->phi_save = calloc((a+1), sizeof(uint64_t));
+
+    return p;
+}
 
 void phi_new_block(PhiBlock* p, uint64_t k)
 {
@@ -454,9 +464,9 @@ uint64_t primecount(void)
     
 
     // S2 
-    int64_t* S2 = malloc((a-1) * sizeof(int64_t));
-    uint64_t* d2 = malloc((a-1) * sizeof(uint64_t)); // S2 decreasing d
-    char* t = malloc((a-1) * sizeof(char));
+    int64_t* S2 = calloc(a-1, sizeof(int64_t));
+    uint64_t* d2 = calloc(a-1, sizeof(uint64_t)); // S2 decreasing d
+    char* t = calloc((a-1), sizeof(char));
 
     // Phi2
     uint64_t P2 = a * (a-1) / 2; // starting sum
@@ -466,7 +476,7 @@ uint64_t primecount(void)
     bool* aux = malloc((IACBRTX+1) * sizeof(bool)); // auxiliary sieve to track primes found
     bool p2done = false;         // flag for algorithm terminated
 
-    PhiBlock* phi_block = malloc(sizeof(PhiBlock));
+    PhiBlock* phi_block = phi_init(a);
 
 
     // Init S2 vars
