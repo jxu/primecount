@@ -1,11 +1,61 @@
 #include <vector>
+#include <array>
+#include <bitset>
 #include <iostream>
 #include <cmath>
 #include <cassert>
 
-#include "fenwick_tree.hpp"
+// The physical block size is half the logical size by only storing odd values
+// For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
+
+#define BSIZE (1LL << 20) // (logical) block size
+#define PSIZE (BSIZE / 2) // physical block size
 
 using namespace std;
+
+// Credit: cp-algorithms (Jakob Kobler), e-maxx.ru (Maxim Ivanov)
+// customized to save memory 
+// only holds unsigned 32-bit values, takes in bools as input
+struct fenwick_tree
+{
+    uint32_t len; // 0-based len
+    std::vector<uint32_t> t; // 1-based tree, indexes [1:len]
+
+    // input bool vector
+    fenwick_tree(const std::bitset<PSIZE> &a) :
+    len(a.size()) 
+    {
+        reset(a);
+    }
+
+    void reset(const std::bitset<PSIZE> &a)
+    {
+        t.assign(len + 1, 0);
+        // linear time construction
+        for (uint32_t i = 1; i <= len; ++i)
+        {
+            t[i] += a[i-1];
+            uint32_t r = i + (i & -i);
+            if (r <= len) t[r] += t[i];
+        }
+    }
+
+    // 0-based input
+    uint32_t sum_to(uint32_t r) const
+    {
+        uint32_t s = 0;
+        for (++r; r > 0; r -= r & -r)
+            s += t[r];
+        return s;
+    }
+
+    // 0-based input
+    void decrease(uint32_t i)
+    {
+        for (++i; i <= len; i += i & -i)
+            --t[i];
+    }
+};
 
 
 // signum: returns -1, 0, or 1
@@ -24,38 +74,33 @@ uint64_t ceil_div(uint64_t x, uint64_t y)
 
 
 // Represents Bk = [zk1, zk) and functions to compute phi(y,b)
-// The physical block size is half the logical size by only storing odd values
-// For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
+
 struct PhiBlock
 {   
-    size_t           bsize;     // (logical) block size
-    size_t           psize;     // physical block size
     uint64_t         zk1;       // z_{k-1}, block lower bound (inclusive)
     uint64_t         zk;        // z_k, block upper bound (exclusive)
-    vector<bool>     ind;       // 0/1 to track [pmin(y) > pb]
+    bitset<PSIZE>    ind;       // 0/1 to track [pmin(y) > pb]
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
     vector<uint64_t> phi_save;  // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
 
     // init block at k=1
     // TODO: phi_sum gets overwritten by first new_block anyway?
-    PhiBlock(size_t bsize, uint64_t a) :
-        bsize(bsize), 
-        psize(bsize / 2),
+    PhiBlock(uint64_t a) :
         zk1(1),
-        zk(bsize + 1),
-        ind(psize, 1), 
+        zk(BSIZE + 1),
         phi_sum(ind),
         phi_save(a + 1, 0)
     {
-        assert(bsize % 2 == 0); // requires even size
+        ind.set(); // all 1s
+        assert(BSIZE % 2 == 0); // requires even size
     }
 
     void new_block(uint64_t k)
     {
-        zk1 = bsize * (k-1) + 1;
-        zk = bsize * k + 1;
-        ind.assign(psize, 1); 
+        zk1 = BSIZE * (k-1) + 1;
+        zk = BSIZE * k + 1;
+        ind.set(); 
         phi_sum.reset(ind);
         // does not reset phi_save!
         
@@ -91,7 +136,7 @@ struct PhiBlock
 
     void update_save(uint64_t b)
     {
-        phi_save[b] += phi_sum.sum_to(psize-1);
+        phi_save[b] += phi_sum.sum_to(PSIZE-1);
     }
 };
 
@@ -99,8 +144,7 @@ struct Primecount
 {
     // tuning parameters
     uint64_t ALPHA;     // tuning parameter
-    uint64_t C = 8;     // precompute phi_c parameter
-    size_t BS;          // sieve block size   
+    uint64_t C = 8;     // precompute phi_c parameter 
 
     // global constants
     uint64_t X;         // Main value to compute pi(X) for
@@ -118,9 +162,8 @@ struct Primecount
     vector<uint32_t> PHI_C;       // phi(x,c) over [1,Q]    
 
 
-    Primecount(uint64_t x, uint64_t alpha, size_t bs) :
+    Primecount(uint64_t x, uint64_t alpha) :
         ALPHA(alpha),
-        BS(bs),
         X(x),
         // Q after sieve
         Z(cbrt(X) * cbrt(X) / ALPHA), // approx
@@ -423,7 +466,7 @@ uint64_t Primecount::primecount(void)
     vector<bool> aux;            // auxiliary sieve to track primes found
     bool p2done = false;         // flag for algorithm terminated
 
-    PhiBlock phi_block(BS, a);
+    PhiBlock phi_block(a);
 
 
     // Init S2 vars
@@ -491,9 +534,9 @@ uint64_t Primecount::primecount(void)
 
 int main(int argc, char* argv[])
 {
-    if (!(argc == 2 || argc == 4))
+    if (!(argc == 2 || argc == 3))
     {
-        cerr << "Usage: ./primecount X [BLOCKSIZE ALPHA]\n";
+        cerr << "Usage: ./primecount X [ALPHA]\n";
         return 1;
     }
 
@@ -501,20 +544,18 @@ int main(int argc, char* argv[])
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
     uint64_t X = atof(argv[1]); 
-    size_t bs = 1LL << 20; // empirical good block size
     uint64_t alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x) 
 
-    if (argc == 4) // override defaults
+    if (argc == 3) // override defaults
     {
-        bs = atof(argv[2]);
-        alpha = atoi(argv[3]);
+        alpha = atoi(argv[2]);
     }
 
     cout << "Computing for X = " << X << endl;
-    cout << "Block size = " << bs << endl;
+    cout << "Block size = " << BSIZE << endl;
     cout << "Alpha = " << alpha << endl;
 
-    Primecount p(X, alpha, bs);
+    Primecount p(X, alpha);
 
     cout << p.primecount() << endl;
 }
