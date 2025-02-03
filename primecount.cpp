@@ -11,9 +11,11 @@
 #define BSIZE (1LL << 20) // (logical) block size
 #define PSIZE (BSIZE / 2) // physical block size
 
+static_assert(BSIZE % 2 == 0);
+
 using namespace std;
 
-// Credit: cp-algorithms (Jakob Kobler), e-maxx.ru (Maxim Ivanov)
+// Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory 
 // only holds unsigned 32-bit values, takes in bools as input
 struct fenwick_tree
@@ -93,7 +95,6 @@ struct PhiBlock
         phi_save(a + 1, 0)
     {
         ind.set(); // all 1s
-        assert(BSIZE % 2 == 0); // requires even size
     }
 
     void new_block(uint64_t k)
