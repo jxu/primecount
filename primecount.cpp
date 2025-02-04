@@ -111,12 +111,18 @@ struct PhiBlock
         //cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
+    // translate into actual index into tree
+    uint64_t tree_index(const uint64_t y) const
+    {
+        return (y - zk1)/2;
+    }
+
     // phi(y,b) compute 
     uint64_t sum_to(uint64_t y, uint64_t b) const
     {
         assert(y >= zk1);
         assert(y < zk);
-        return phi_save[b] + phi_sum.sum_to((y - zk1)/2);
+        return phi_save[b] + phi_sum.sum_to(tree_index(y));
     }
 
     // sieve out p_b for this block
@@ -130,9 +136,7 @@ struct PhiBlock
         
         for (uint64_t j = jstart; j < zk; j += 2*pb)
         {
-
-            phi_sum.try_decrease((j-zk1)/2); 
-            
+            phi_sum.try_decrease(tree_index(j)); 
         }
     }
 
