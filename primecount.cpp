@@ -23,21 +23,24 @@ struct fenwick_tree
 {
     uint32_t len; // 0-based len
     std::vector<uint32_t> t; // 1-based tree, indexes [1:len]
+    bitset<PSIZE>    ind;       // 0/1 to track [pmin(y) > pb]
 
-    // input bool vector
-    fenwick_tree(const std::bitset<PSIZE> &a) :
-    len(a.size()) 
+    // input always array of 1s
+    fenwick_tree() :
+        len(PSIZE)
     {
-        reset(a);
+        reset();
     }
 
-    void reset(const std::bitset<PSIZE> &a)
+    // reset to all 1s
+    void reset()
     {
+        ind.set();
         t.assign(len + 1, 0);
         // linear time construction
         for (uint32_t i = 1; i <= len; ++i)
         {
-            t[i] += a[i-1];
+            t[i] += ind[i-1];
             uint32_t r = i + (i & -i);
             if (r <= len) t[r] += t[i];
         }
@@ -52,11 +55,16 @@ struct fenwick_tree
         return s;
     }
 
+    // will only decrease if ind[i] is not already marked
     // 0-based input
-    void decrease(uint32_t i)
+    void try_decrease(uint32_t i)
     {
-        for (++i; i <= len; i += i & -i)
-            --t[i];
+        if (ind[i])
+        {
+            ind[i] = 0;
+            for (++i; i <= len; i += i & -i)
+                --t[i];
+        }
     }
 };
 
@@ -82,14 +90,14 @@ struct PhiBlock
 {   
     uint64_t         zk1;       // z_{k-1}, block lower bound (inclusive)
     uint64_t         zk;        // z_k, block upper bound (exclusive)
-    bitset<PSIZE>    ind;       // 0/1 to track [pmin(y) > pb]
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
     vector<uint64_t> phi_save;  // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
+                                
 
     // init block at k=1
     PhiBlock(uint64_t a) :
-        phi_sum(ind),
+        phi_sum(),
         phi_save(a + 1, 0)
     {}
 
@@ -97,8 +105,7 @@ struct PhiBlock
     {
         zk1 = BSIZE * (k-1) + 1;
         zk = BSIZE * k + 1;
-        ind.set(); 
-        phi_sum.reset(ind);
+        phi_sum.reset();
         // does not reset phi_save!
         
         //cout << "block [" << zk1 << "," << zk << ")\n";
@@ -123,11 +130,9 @@ struct PhiBlock
         
         for (uint64_t j = jstart; j < zk; j += 2*pb)
         {
-            if (ind[(j-zk1)/2])   // not marked yet
-            {
-                phi_sum.decrease((j-zk1)/2);
-                ind[(j-zk1)/2] = 0;
-            }
+
+            phi_sum.try_decrease((j-zk1)/2); 
+            
         }
     }
 
