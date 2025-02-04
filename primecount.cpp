@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
+#include <cstdint>
 
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
@@ -87,15 +88,10 @@ struct PhiBlock
                                 // b is only explicitly used here
 
     // init block at k=1
-    // TODO: phi_sum gets overwritten by first new_block anyway?
     PhiBlock(uint64_t a) :
-        zk1(1),
-        zk(BSIZE + 1),
         phi_sum(ind),
         phi_save(a + 1, 0)
-    {
-        ind.set(); // all 1s
-    }
+    {}
 
     void new_block(uint64_t k)
     {
