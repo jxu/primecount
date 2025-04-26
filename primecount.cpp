@@ -1,6 +1,4 @@
 #include <vector>
-#include <array>
-#include <bitset>
 #include <iostream>
 #include <cmath>
 #include <cassert>
@@ -9,10 +7,6 @@
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
 
-#define BSIZE (1LL << 20) // (logical) block size
-#define PSIZE (BSIZE / 2) // physical block size
-
-static_assert(BSIZE % 2 == 0);
 
 using namespace std;
 
@@ -21,13 +15,13 @@ using namespace std;
 // only holds unsigned 32-bit values, takes in bools as input
 struct fenwick_tree
 {
-    uint32_t len; // 0-based len
-    std::vector<uint32_t> t; // 1-based tree, indexes [1:len]
-    bitset<PSIZE>    ind;       // 0/1 to track [pmin(y) > pb]
+    uint32_t         len; // 0-based len
+    vector<uint32_t> t;   // 1-based tree, indexes [1:len]
+    vector<bool>     ind; // 0/1 to track [pmin(y) > pb]
 
-    // input always array of 1s
-    fenwick_tree() :
-        len(PSIZE)
+    // init always array of 1s
+    fenwick_tree(size_t psize) :
+        len(psize)
     {
         reset();
     }
@@ -35,7 +29,7 @@ struct fenwick_tree
     // reset to all 1s
     void reset()
     {
-        ind.set();
+        ind.assign(len + 1, 1);
         t.assign(len + 1, 0);
         // linear time construction
         for (uint32_t i = 1; i <= len; ++i)
@@ -58,7 +52,8 @@ struct fenwick_tree
     // will only decrease if ind[i] is not already marked
     // 0-based input
     void try_decrease(uint32_t i)
-    {
+    {   
+        assert(i < ind.size());
         if (ind[i])
         {
             ind[i] = 0;
@@ -87,28 +82,33 @@ uint64_t ceil_div(uint64_t x, uint64_t y)
 // Represents Bk = [zk1, zk) and functions to compute phi(y,b)
 
 struct PhiBlock
-{   
+{
+    size_t           bsize;     // logical block size
+    size_t           psize;     // physical block size
     uint64_t         zk1;       // z_{k-1}, block lower bound (inclusive)
     uint64_t         zk;        // z_k, block upper bound (exclusive)
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
     vector<uint64_t> phi_save;  // phi_save(k,b) = phi(zk1-1,b) from prev block
                                 // b is only explicitly used here
-                                
 
     // init block at k=1
-    PhiBlock(uint64_t a) :
-        phi_sum(),
+    PhiBlock(uint64_t a, size_t bsize) :
+        bsize(bsize),
+        psize(bsize / 2),  // actually only store odd values
+        phi_sum(psize),
         phi_save(a + 1, 0)
-    {}
+    {
+        assert(bsize % 2 == 0); // only tested even sizes
+    }
 
     void new_block(uint64_t k)
     {
-        zk1 = BSIZE * (k-1) + 1;
-        zk = BSIZE * k + 1;
+        zk1 = bsize * (k-1) + 1;
+        zk = bsize * k + 1;
         phi_sum.reset();
         // does not reset phi_save!
         
-        //cout << "block [" << zk1 << "," << zk << ")\n";
+        cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
     // translate into actual index into tree
@@ -142,7 +142,7 @@ struct PhiBlock
 
     void update_save(uint64_t b)
     {
-        phi_save[b] += phi_sum.sum_to(PSIZE-1);
+        phi_save[b] += phi_sum.sum_to(psize-1);
     }
 };
 
@@ -150,7 +150,8 @@ struct Primecount
 {
     // tuning parameters
     uint64_t ALPHA;     // tuning parameter
-    uint64_t C = 8;     // precompute phi_c parameter 
+    uint64_t C = 8;     // precompute phi_c parameter
+    size_t   BSIZE;     // (logical) block size
 
     // global constants
     uint64_t X;         // Main value to compute pi(X) for
@@ -168,8 +169,9 @@ struct Primecount
     vector<uint32_t> PHI_C;       // phi(x,c) over [1,Q]    
 
 
-    Primecount(uint64_t x, uint64_t alpha) :
+    Primecount(uint64_t x, uint64_t alpha, size_t bsize) :
         ALPHA(alpha),
+        BSIZE(bsize),
         X(x),
         // Q after sieve
         Z(cbrt(X) * cbrt(X) / ALPHA), // approx
@@ -191,7 +193,7 @@ struct Primecount
         cout << "Z = " << Z << endl;
         cout << "IACBRTX = " << IACBRTX << endl;
         cout << "ISQRTX = " << ISQRTX << endl;
-
+        
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
 
         // Since p_{a+1} may be needed in S2, we introduce fudge factor
@@ -472,7 +474,7 @@ uint64_t Primecount::primecount(void)
     vector<bool> aux;            // auxiliary sieve to track primes found
     bool p2done = false;         // flag for algorithm terminated
 
-    PhiBlock phi_block(a);
+    PhiBlock phi_block(a, BSIZE);
 
 
     // Init S2 vars
@@ -557,11 +559,14 @@ int main(int argc, char* argv[])
         alpha = atoi(argv[2]);
     }
 
+    // TODO: set from command line
+    size_t BSIZE = 1 << 20;
+
     cout << "Computing for X = " << X << endl;
     cout << "Block size = " << BSIZE << endl;
     cout << "Alpha = " << alpha << endl;
 
-    Primecount p(X, alpha);
+    Primecount p(X, alpha, BSIZE);
 
     cout << p.primecount() << endl;
 }
