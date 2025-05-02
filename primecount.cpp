@@ -107,6 +107,8 @@ long ceil_div(long x, long y)
 
 
 // Represents Bk = [zk1, zk) and functions to compute phi(y,b)
+// phi(y,b) = count (pos) integers <= y not divisible by the first b primes
+// i.e. not p_b-smooth
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
 
@@ -117,8 +119,10 @@ struct PhiBlock
     size_t           zk1;       // z_{k-1}, block lower bound (inclusive)
     size_t           zk;        // z_k, block upper bound (exclusive)
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
-    vector<long>     phi_save;  // phi_save(k,b) = phi(zk1-1,b) from prev block
-                                // b is only explicitly used here
+    
+    // phi_save(k,b) = phi(zk1-1,b) from prev block, for implicit b
+    // c <= b < a-1
+    vector<long>     phi_save;  
 
     // init block at k=1
     PhiBlock(size_t a, size_t bsize) :
@@ -175,6 +179,49 @@ struct PhiBlock
         phi_save[b] += phi_sum.sum_to(psize-1);
     }
 };
+
+void test_phi_block()
+{
+
+    PhiBlock pb(2, 50);
+    pb.new_block(1); // block k=1: [1, 51)
+    // by design, phi block already has b = 1, p_b = 2 sieved out
+    // sieved out evens, so remaining are 1,3,5,7,... = 1 mod 2
+    int ref11[50] = {1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,
+        11,11,12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,19,20,20,
+        21,21,22,22,23,23,24,24,25,25};
+
+    // sieved out by 3s, so remaining are 1, 5, 7, 11, ... = 1,5 mod 6
+    int ref12[50] = {1,1,1,1,2,2,3,3,3,3,4,4,5,5,5,5,6,6,7,7,
+        7,7,8,8,9,9,9,9,10,10,11,11,11,11,12,12,13,13,13,13,
+        14,14,15,15,15,15,16,16,17,17};
+
+    
+    for (int i = 1; i <= 50; ++i)
+    {
+        cout << pb.sum_to(i, 1) << ",";
+        assert(pb.sum_to(i, 1) == ref11[i-pb.zk1]);
+
+    }
+    cout << endl;
+
+    // sieve out b = 2, p_b = 3
+    pb.sieve_out(3);
+
+    for (int i = 1; i <= 50; ++i)
+    {
+        cout << pb.sum_to(i, 2) << ",";
+        assert(pb.sum_to(i, 2) == ref12[i-pb.zk1]);
+
+    }
+    cout << endl;
+
+
+
+    // new block k = 2
+    // b = 1
+
+}
 
 struct Primecount
 {
@@ -576,6 +623,7 @@ int main(int argc, char* argv[])
     if (argc == 1)
     {
         test_fenwick_tree();
+        test_phi_block();
         return 0;
     }
 
