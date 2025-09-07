@@ -2,66 +2,13 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
+#include "fenwick_tree.hpp"
 
 // use int/long instead of fixed-width types for fun
 static_assert(sizeof(int) == 4); 
 static_assert(sizeof(long) == 8);
 
 using namespace std;
-
-// Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
-// customized to save memory by only operating over a bit array (0/1 input)
-// only holds 32-bit values
-struct fenwick_tree
-{
-    size_t          len; // 0-based len
-    vector<int>     t;   // 1-based tree, indexes [1:len]
-    vector<bool>    ind; // 0/1 to track [pmin(y) > pb]
-
-    // init array of 1s of length psize
-    fenwick_tree(size_t psize) :
-        len(psize)
-    {
-        reset();
-    }
-
-    // reset ind to all 1s and reconstruct t
-    void reset()
-    {
-        ind.assign(len + 1, 1);
-        t.assign(len + 1, 0);
-        // linear time construction
-        for (size_t i = 1; i <= len; ++i)
-        {
-            t[i] += ind[i-1];
-            size_t r = i + (i & -i);
-            if (r <= len) t[r] += t[i];
-        }
-    }
-
-    // sum values a[0..r] (0-based)
-    int sum_to(size_t r) const
-    {
-        assert(r+1 < t.size());
-        int s = 0;
-        for (++r; r > 0; r -= r & -r)
-            s += t[r];
-        return s;
-    }
-
-    // will only decrease if ind[i] is not already marked
-    // 0-based input
-    void try_decrease(size_t i)
-    {   
-        assert(i < ind.size());
-        if (ind[i])
-        {
-            ind[i] = 0;
-            for (++i; i <= len; i += i & -i)
-                --t[i];
-        }
-    }
-};
 
 void test_fenwick_tree()
 {
