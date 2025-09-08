@@ -1,5 +1,13 @@
-release: primecount.cpp
-	g++ -O3 -Wall -Wextra -o primecount fenwick_tree.cpp primecount.cpp
+CXX = g++
+CXXFLAGS = -Wall -Wextra
 
-debug: primecount.cpp
-	g++ -g -Wall -Wextra -D_GLIBCXX_DEBUG -DDEBUG -fsanitize=signed-integer-overflow -o primecount fenwick_tree.cpp primecount.cpp
+# Target-specific variable values
+release: CXXFLAGS += -O3
+release: primecount
+
+debug: CXXFLAGS += -g -D_GLIBCXX_DEBUG -DDEBUG -fsanitize=signed-integer-overflow 
+debug: primecount
+
+primecount: primecount.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
