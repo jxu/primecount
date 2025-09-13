@@ -18,8 +18,9 @@ inline long ceil_div(long x, long y)
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
 
-struct PhiBlock
+class PhiBlock
 {
+public:
     size_t           bsize;     // logical block size
     size_t           psize;     // physical block size
     size_t           zk1;       // z_{k-1}, block lower bound (inclusive)
