@@ -1,7 +1,7 @@
 #include <cassert>
 #include "fenwick_tree.hpp"
 
-void test_fenwick_tree()
+int main()
 {
     // example: fenwick tree over array [1,1,1,1,1]
     fenwick_tree ft(5);
