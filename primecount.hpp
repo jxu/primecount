@@ -1,3 +1,7 @@
+// Main implementation as header-only
+// Small API for main and testing programs
+#pragma once
+
 #include <vector>
 #include <iostream>
 #include <cmath>
@@ -63,43 +67,15 @@ struct fenwick_tree
     }
 };
 
-void test_fenwick_tree()
-{
-    // example: fenwick tree over array [1,1,1,1,1]
-    fenwick_tree ft(5);
-
-    int a1[5] = {1, 2, 3, 4, 5};
-
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a1[i]);
-
-    ft.try_decrease(1);
-
-    int a2[5] = {1, 1, 2, 3, 4};
-
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a2[i]);
-
-    ft.try_decrease(1); // should not change
-
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a2[i]);
-
-    ft.reset();
-
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a1[i]);
-}
-
 // signum: returns -1, 0, or 1
-long sgn(long x)
+inline long sgn(long x)
 {
     return (x > 0) - (x < 0);
 }
 
 
 // ceil(x/y) for positive integers
-long ceil_div(long x, long y)
+inline long ceil_div(long x, long y)
 {
     return x / y + (x % y > 0);
 }
@@ -178,70 +154,6 @@ struct PhiBlock
         phi_save[b] += phi_sum.sum_to(psize-1);
     }
 };
-
-// Test PhiBlock values phi(y,b) match a reference
-void test_phiyb(const PhiBlock& pb, const size_t b, const vector<int>& ref)
-{
-     for (size_t i = pb.zk1; i < pb.zk; ++i)
-    {
-        assert(pb.sum_to(i, b) == ref[i-pb.zk1]);
-    }
-}
-
-
-void test_phi_block()
-{
-    const size_t bsize = 50;
-    PhiBlock pb(2, bsize);
-    pb.new_block(1); // block k=1: [1, 51)
-    // by design, phi block already has b = 1, p_b = 2 sieved out
-    // sieved out evens, so remaining are 1,3,5,7,... = 1 mod 2
-    const vector<int> phi11 = {1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,
-        11,11,12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,19,20,20,
-        21,21,22,22,23,23,24,24,25,25};
-
-    // sieved out by 3s, so remaining are 1, 5, 7, 11, ... = 1,5 mod 6
-    vector<int> phi12 = {1,1,1,1,2,2,3,3,3,3,4,4,5,5,5,5,6,6,7,7,
-        7,7,8,8,9,9,9,9,10,10,11,11,11,11,12,12,13,13,13,13,
-        14,14,15,15,15,15,16,16,17,17};
-
-    int b = 1;
-    test_phiyb(pb, b, phi11);
-    pb.update_save(b); // prepare for next block
-
-    // sieve out b = 2, p_b = 3
-    b = 2;
-    pb.sieve_out(3);
-    test_phiyb(pb, b, phi12);
-    pb.update_save(b); // prepare for next block
-   
-    // remaining are 51, 53, 55, ...
-    vector<int> phi21 = 
-    {
-        26,26,27,27,28,28,29,29,30,30,31,31,32,32,33,33,34,34,35,35,
-        36,36,37,37,38,38,39,39,40,40,41,41,42,42,43,43,44,44,45,45,
-        46,46,47,47,48,48,49,49,50,50
-    };
-
-    // remaining 1,5 mod 6
-    vector<int> phi22 = 
-    {
-        17,17,18,18,19,19,19,19,20,20,21,21,21,21,22,22,23,23,23,23,
-        24,24,25,25,25,25,26,26,27,27,27,27,28,28,29,29,29,29,30,30,
-        31,31,31,31,32,32,33,33,33,33
-    };
-    
-    // new block k = 2, [51,101)
-    pb.new_block(2);
-    b = 1;
-    test_phiyb(pb, b, phi21);    
-    pb.update_save(b);
-
-    b = 2;
-    pb.sieve_out(3); 
-    test_phiyb(pb, b, phi22);
-    pb.update_save(b);
-}
 
 struct Primecount
 {
@@ -543,136 +455,96 @@ struct Primecount
         return P2;
     }
 
-    long primecount();
+
+    long primecount(void)
+    {
+        // Sum accumulators
+        long S0 = S0_iter();
+
+        cout << "S0 = " << S0 << "\n";
+
+        // S1
+        long S1 = 0;
+        vector<long> m(astar, IACBRTX); // S1 decreasing m
+
+        // S2 
+        vector<long> S2(a-1);
+        vector<long> d2(a-1); // S2 decreasing d
+        vector<char>  t(a-1);
+
+        // Phi2
+        long P2 = a * (a-1) / 2; // starting sum
+        long u = ISQRTX;         // largest p_b not considered yet
+        long v = a;              // count number of primes up to sqrt(x)
+        long w = u + 1;          // track first integer represented in aux
+        vector<bool> aux;            // auxiliary sieve to track primes found
+        bool p2done = false;         // flag for algorithm terminated
+
+        PhiBlock phi_block(a, BSIZE);
+
+
+        // Init S2 vars
+        for (long b = astar; b < a - 1; ++b) 
+        {
+            long pb1 = PRIMES[b+1];
+
+            long tb;
+            // hope this is accurate
+            if (cbrt(X) <= pb1)     tb = b + 2;
+            else if (pb1*pb1 <= Z)  tb = a + 1; 
+            else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1; 
+
+            d2[b] = tb - 1;
+            S2[b] = a - d2[b];
+            t[b] = 0;
+        }
+
+        //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
+        for (size_t k = 1; ; ++k)
+        {
+            // init new block
+            phi_block.new_block(k);
+            if (phi_block.zk1 > (size_t)Z) break;
+
+            // For each b...
+            // start at 2 to sieve out odd primes
+            
+            for (long b = 2; b <= a; ++b)
+            {
+                //cout << "b " << b << endl;
+                long pb = PRIMES[b];
+
+                // sieve out p_b for this block (including <= C)
+                phi_block.sieve_out(pb);
+              
+                // S1 leaves, b in [C, astar)
+                if ((long)C <= b && b < astar)
+                    S1 += S1_iter(b, phi_block, m[b]); // pass m[b] by ref
+
+                // S2 leaves, b in [astar, a-1)
+                else if (astar <= b && b < a - 1)     
+                    S2[b] += S2_iter(b, phi_block, d2[b], t[b]);
+
+                // phi2, after sieved out first a primes 
+                else if (b == a && !p2done)
+                    P2 += P2_iter(phi_block, u, v, w, aux, p2done);
+
+                // for next block k
+                phi_block.update_save(b);
+            }
+        }
+
+        long S2_total = 0;
+        for (auto x : S2)
+            S2_total += x;
+
+        // accumulate final results
+        cout << "S1 = " << S1 << endl;
+        cout << "S2 = " << S2_total << endl;
+        cout << "P2 = " << P2 << endl;
+
+        return S0 + S1 + S2_total + a - 1 - P2;
+    }
 };
 
 
-long Primecount::primecount(void)
-{
-    // Sum accumulators
-    long S0 = S0_iter();
-
-    cout << "S0 = " << S0 << "\n";
-
-    // S1
-    long S1 = 0;
-    vector<long> m(astar, IACBRTX); // S1 decreasing m
-
-    // S2 
-    vector<long> S2(a-1);
-    vector<long> d2(a-1); // S2 decreasing d
-    vector<char>  t(a-1);
-
-    // Phi2
-    long P2 = a * (a-1) / 2; // starting sum
-    long u = ISQRTX;         // largest p_b not considered yet
-    long v = a;              // count number of primes up to sqrt(x)
-    long w = u + 1;          // track first integer represented in aux
-    vector<bool> aux;            // auxiliary sieve to track primes found
-    bool p2done = false;         // flag for algorithm terminated
-
-    PhiBlock phi_block(a, BSIZE);
-
-
-    // Init S2 vars
-    for (long b = astar; b < a - 1; ++b) 
-    {
-        long pb1 = PRIMES[b+1];
-
-        long tb;
-        // hope this is accurate
-        if (cbrt(X) <= pb1)     tb = b + 2;
-        else if (pb1*pb1 <= Z)  tb = a + 1; 
-        else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1; 
-
-        d2[b] = tb - 1;
-        S2[b] = a - d2[b];
-        t[b] = 0;
-    }
-
-    //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
-    for (size_t k = 1; ; ++k)
-    {
-        // init new block
-        phi_block.new_block(k);
-        if (phi_block.zk1 > (size_t)Z) break;
-
-        // For each b...
-        // start at 2 to sieve out odd primes
-        
-        for (long b = 2; b <= a; ++b)
-        {
-            //cout << "b " << b << endl;
-            long pb = PRIMES[b];
-
-            // sieve out p_b for this block (including <= C)
-            phi_block.sieve_out(pb);
-          
-            // S1 leaves, b in [C, astar)
-            if ((long)C <= b && b < astar)
-                S1 += S1_iter(b, phi_block, m[b]); // pass m[b] by ref
-
-            // S2 leaves, b in [astar, a-1)
-            else if (astar <= b && b < a - 1)     
-                S2[b] += S2_iter(b, phi_block, d2[b], t[b]);
-
-            // phi2, after sieved out first a primes 
-            else if (b == a && !p2done)
-                P2 += P2_iter(phi_block, u, v, w, aux, p2done);
-
-            // for next block k
-            phi_block.update_save(b);
-        }
-    }
-
-    long S2_total = 0;
-    for (auto x : S2)
-        S2_total += x;
-
-    // accumulate final results
-    cout << "S1 = " << S1 << endl;
-    cout << "S2 = " << S2_total << endl;
-    cout << "P2 = " << P2 << endl;
-
-    return S0 + S1 + S2_total + a - 1 - P2;
-}
-
-int main(int argc, char* argv[])
-{
-    // special run tests mode
-    if (argc == 1)
-    {
-        test_fenwick_tree();
-        test_phi_block();
-        return 0;
-    }
-
-
-    if (!(argc == 2 || argc == 3))
-    {
-        cerr << "Usage: ./primecount X [ALPHA]\n";
-        return 1;
-    }
-
-    // setup global constants
-
-    // read float like 1e12 from command line (may not be exact for > 2^53)
-    long X = atof(argv[1]); 
-    long alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x) 
-
-    if (argc == 3) // override defaults
-    {
-        alpha = atoi(argv[2]);
-    }
-
-    // TODO: set from command line
-    size_t BSIZE = 1 << 20;
-
-    cout << "Computing for X = " << X << endl;
-    cout << "Block size = " << BSIZE << endl;
-    cout << "Alpha = " << alpha << endl;
-
-    Primecount p(X, alpha, BSIZE);
-
-    cout << p.primecount() << endl;
-}
