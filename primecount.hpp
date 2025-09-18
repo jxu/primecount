@@ -16,12 +16,14 @@ using namespace std;
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
 // only holds 32-bit values
-struct fenwick_tree
+class fenwick_tree
 {
+private:
     size_t          len; // 0-based len
     vector<int>     t;   // 1-based tree, indexes [1:len]
     vector<bool>    ind; // 0/1 to track [pmin(y) > pb]
 
+public:
     // init array of 1s of length psize
     fenwick_tree(size_t psize) :
         len(psize)
@@ -87,8 +89,9 @@ inline long ceil_div(long x, long y)
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
 
-struct PhiBlock
+class PhiBlock
 {
+public:
     size_t           bsize;     // logical block size
     size_t           psize;     // physical block size
     size_t           zk1;       // z_{k-1}, block lower bound (inclusive)
@@ -155,8 +158,9 @@ struct PhiBlock
     }
 };
 
-struct Primecount
+class Primecount
 {
+public:
     // tuning parameters
     long   ALPHA;     // tuning parameter (integer here)
     size_t C = 8;     // precompute phi_c parameter
