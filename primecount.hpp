@@ -8,7 +8,7 @@
 #include <cassert>
 
 // use int/long instead of fixed-width types for fun
-static_assert(sizeof(int) == 4); 
+static_assert(sizeof(int) == 4);
 static_assert(sizeof(long) == 8);
 
 using namespace std;
@@ -58,7 +58,7 @@ public:
     // will only decrease if ind[i] is not already marked
     // 0-based input
     void try_decrease(size_t i)
-    {   
+    {
         assert(i < ind.size());
         if (ind[i])
         {
@@ -97,10 +97,10 @@ public:
     size_t           zk1;       // z_{k-1}, block lower bound (inclusive)
     size_t           zk;        // z_k, block upper bound (exclusive)
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
-    
+
     // phi_save(k,b) = phi(zk1-1,b) from prev block, for implicit b
     // c <= b < a-1
-    vector<long>     phi_save;  
+    vector<long>     phi_save;
 
     // init block at k=1
     PhiBlock(size_t a, size_t bsize) :
@@ -119,7 +119,7 @@ public:
         zk = bsize * k + 1;
         phi_sum.reset();
         // does not reset phi_save!
-        
+
         cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
@@ -129,7 +129,7 @@ public:
         return (y - zk1)/2;
     }
 
-    // phi(y,b) compute 
+    // phi(y,b) compute
     long sum_to(size_t y, size_t b) const
     {
         assert(y >= zk1);
@@ -143,12 +143,12 @@ public:
         assert(pb > 2);
 
         size_t jstart = pb * ceil_div(zk1, pb);
-        if (jstart % 2 == 0) 
+        if (jstart % 2 == 0)
             jstart += pb; // ensure odd
-        
+
         for (size_t j = jstart; j < zk; j += 2*pb)
         {
-            phi_sum.try_decrease(tree_index(j)); 
+            phi_sum.try_decrease(tree_index(j));
         }
     }
 
@@ -172,14 +172,14 @@ public:
     long     Z;         // X^(2/3) / alpha (approx)
     long     ISQRTX;    // floor(sqrt(X))
     long     IACBRTX;   // floor(alpha cbrt(X))
-    long     a;         // pi(alpha cbrt(X)) 
+    long     a;         // pi(alpha cbrt(X))
     long     astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
 
     // precomputed tables (assume alpha cbrt X < INT32_MAX)
-    vector<int> MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx] 
+    vector<int> MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
     vector<int> PRIMES;      // primes <= acbrtx
-    vector<int> PRIME_COUNT; // pi(x) over [1,acbrtx] 
-    vector<int> PHI_C;       // phi(x,c) over [1,Q]    
+    vector<int> PRIME_COUNT; // pi(x) over [1,acbrtx]
+    vector<int> PHI_C;       // phi(x,c) over [1,Q]
 
 
     Primecount(long x, long alpha, size_t bsize) :
@@ -206,7 +206,7 @@ public:
         cout << "Z = " << Z << endl;
         cout << "IACBRTX = " << IACBRTX << endl;
         cout << "ISQRTX = " << ISQRTX << endl;
-        
+
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
 
         // Since p_{a+1} may be needed in S2, we introduce fudge factor
@@ -220,7 +220,7 @@ public:
 
         assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
-        // good enough 
+        // good enough
         astar = 1;
         while(PRIMES[astar+1] * PRIMES[astar+1] <= IACBRTX)
             ++astar;
@@ -231,7 +231,7 @@ public:
 
         assert(C >= 2);
         assert((long)C <= astar);
-        
+
         pre_phi_c(C);
     }
 
@@ -274,7 +274,7 @@ public:
         }
     }
 
-    // Precompute phi(x,c) 
+    // Precompute phi(x,c)
     void pre_phi_c(size_t C)
     {
         // compute Q as product of first C primes
@@ -316,9 +316,9 @@ public:
     }
 
     // Algorithm 1
-    long S1_iter(const size_t b, 
-                    const PhiBlock& phi_block, 
-                    long& mb)
+    long S1_iter(const size_t b,
+                 const PhiBlock& phi_block,
+                 long& mb)
     {
         long S1 = 0;
         long pb1 = PRIMES[b+1];
@@ -334,20 +334,20 @@ public:
             {
                 S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y, b);
             }
-        }        
+        }
         return S1;
     }
 
     // Algorithm 2 hell
-    long S2_iter(const long b, 
-                    const PhiBlock& phi_block, 
-                    long& d2b,
-                    char& t // t[b], different from other tb
-    )
+    long S2_iter(const long b,
+                 const PhiBlock& phi_block,
+                 long& d2b,
+                 char& t // t[b], different from other tb
+                )
     {
         long S2b = 0;
         long pb1 = PRIMES[b+1];
-        
+
         while (d2b > b + 1) // step 2, main loop
         {
             long y = X / (pb1 * PRIMES[d2b]);
@@ -356,7 +356,7 @@ public:
             {
                 if ((size_t)y >= phi_block.zk) // step 7
                 {
-                    break; // pause until next block 
+                    break; // pause until next block
                 }
                 else // step 8 (contribution using phi_block)
                 {
@@ -364,19 +364,19 @@ public:
                     --d2b;
                     // repeat loop
                 }
-            } 
+            }
             else // t = 0 or 1, easy leaves
             {
-                if (y >= IACBRTX) 
+                if (y >= IACBRTX)
                 {
                     t = 2;
                     // since t = 2 is set and d2 didn't change, the new loop
                     // will go to step 7
-                }                   
+                }
                 else // step 3/5
                 {
                     long l = PRIME_COUNT[y] - b + 1;
-                    
+
                     if (t == 0) // step 3
                     {
                         // d' + 1 is the smallest d for which (12) holds:
@@ -393,10 +393,10 @@ public:
                             S2b += l * (d2b - d_);
                             d2b = d_;
                         }
-                        
+
                     }
                     if (t == 1) // t = 1, sparse easy leaves
-                    {   
+                    {
                         // step 6
                         S2b += l;
                         --d2b;
@@ -410,12 +410,12 @@ public:
 
 
     // Algorithm 3: computation of phi2(x,a)
-    long P2_iter(const PhiBlock& phi_block, 
-                    long& u,
-                    long& v,
-                    long& w,
-                    vector<bool>& aux,
-                    bool& p2done)
+    long P2_iter(const PhiBlock& phi_block,
+                 long& u,
+                 long& v,
+                 long& w,
+                 vector<bool>& aux,
+                 bool& p2done)
     {
         long P2 = 0;
         // step 3 loop (u decrement steps moved here)
@@ -427,7 +427,7 @@ public:
                 w = max(2L, u - IACBRTX);
                 aux.assign(u - w + 1, true);
 
-                for (size_t i = 1; ; ++i) 
+                for (size_t i = 1; ; ++i)
                 {
                     long p = PRIMES[i];
                     if (p*p > u) break;
@@ -443,14 +443,14 @@ public:
             if (aux[u-w]) // prime
             {
                 size_t y = X / u;
-                if (y >= phi_block.zk) 
+                if (y >= phi_block.zk)
                     return P2; // finish this block
 
                 // phi(y,a)
                 long phi = phi_block.sum_to(y, a);
                 P2 += phi + a - 1;
                 ++v; // count new prime
-            }                  
+            }
         }
 
         // step 3 terminate
@@ -471,7 +471,7 @@ public:
         long S1 = 0;
         vector<long> m(astar, IACBRTX); // S1 decreasing m
 
-        // S2 
+        // S2
         vector<long> S2(a-1);
         vector<long> d2(a-1); // S2 decreasing d
         vector<char>  t(a-1);
@@ -488,15 +488,15 @@ public:
 
 
         // Init S2 vars
-        for (long b = astar; b < a - 1; ++b) 
+        for (long b = astar; b < a - 1; ++b)
         {
             long pb1 = PRIMES[b+1];
 
             long tb;
             // hope this is accurate
             if (cbrt(X) <= pb1)     tb = b + 2;
-            else if (pb1*pb1 <= Z)  tb = a + 1; 
-            else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1; 
+            else if (pb1*pb1 <= Z)  tb = a + 1;
+            else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1;
 
             d2[b] = tb - 1;
             S2[b] = a - d2[b];
@@ -512,7 +512,7 @@ public:
 
             // For each b...
             // start at 2 to sieve out odd primes
-            
+
             for (long b = 2; b <= a; ++b)
             {
                 //cout << "b " << b << endl;
@@ -520,16 +520,16 @@ public:
 
                 // sieve out p_b for this block (including <= C)
                 phi_block.sieve_out(pb);
-              
+
                 // S1 leaves, b in [C, astar)
                 if ((long)C <= b && b < astar)
                     S1 += S1_iter(b, phi_block, m[b]); // pass m[b] by ref
 
                 // S2 leaves, b in [astar, a-1)
-                else if (astar <= b && b < a - 1)     
+                else if (astar <= b && b < a - 1)
                     S2[b] += S2_iter(b, phi_block, d2[b], t[b]);
 
-                // phi2, after sieved out first a primes 
+                // phi2, after sieved out first a primes
                 else if (b == a && !p2done)
                     P2 += P2_iter(phi_block, u, v, w, aux, p2done);
 

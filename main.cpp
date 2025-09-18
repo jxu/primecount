@@ -11,8 +11,8 @@ int main(int argc, char* argv[])
     // setup global constants
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
-    long X = atof(argv[1]); 
-    long alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x) 
+    long X = atof(argv[1]);
+    long alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
 
     if (argc == 3) // override defaults
     {
