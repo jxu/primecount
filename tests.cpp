@@ -1,37 +1,42 @@
 #include "primecount.hpp"
 
+using namespace std;
+
+// checks ft.sum_to(i) == sum v[0:i]
+void check_ft_equal(const fenwick_tree& ft, const vector<bool>& v)
+{
+    int s = 0;
+    for (size_t i = 0; i < v.size(); ++i)
+    {
+        s += v[i];
+        assert(ft.sum_to(i) == s);
+    }
+}
+
 void test_fenwick_tree()
 {
     // example: fenwick tree over array [1,1,1,1,1]
+    vector<bool> v1(5, 1);
     fenwick_tree ft(5);
+    check_ft_equal(ft, v1);
 
-    int a1[5] = {1, 2, 3, 4, 5};
-
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a1[i]);
-
+    v1[1] = 0;
     ft.try_decrease(1);
-
-    int a2[5] = {1, 1, 2, 3, 4};
-
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a2[i]);
-
+    check_ft_equal(ft, v1);
+   
+    v1[1] = 0;
     ft.try_decrease(1); // should not change
+    check_ft_equal(ft, v1); 
 
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a2[i]);
-
+    v1.assign(5, 1); // reset 
     ft.reset();
+    check_ft_equal(ft, v1);
 
-    for (int i = 0; i < 5; ++i)
-        assert(ft.sum_to(i) == a1[i]);
-
-
+    cout << "Fenwick tree tests passed" << endl;
 }
 
 // Test PhiBlock values phi(y,b) match a reference
-void test_phiyb(const PhiBlock& pb, const size_t b, const vector<int>& ref)
+void check_phiyb(const PhiBlock& pb, const size_t b, const vector<int>& ref)
 {
     for (size_t i = pb.zk1; i < pb.zk; ++i)
     {
@@ -61,13 +66,13 @@ void test_phi_block()
                         };
 
     int b = 1;
-    test_phiyb(pb, b, phi11);
+    check_phiyb(pb, b, phi11);
     pb.update_save(b); // prepare for next block
 
     // sieve out b = 2, p_b = 3
     b = 2;
     pb.sieve_out(3);
-    test_phiyb(pb, b, phi12);
+    check_phiyb(pb, b, phi12);
     pb.update_save(b); // prepare for next block
 
     // remaining are 51, 53, 55, ...
@@ -89,12 +94,12 @@ void test_phi_block()
     // new block k = 2, [51,101)
     pb.new_block(2);
     b = 1;
-    test_phiyb(pb, b, phi21);
+    check_phiyb(pb, b, phi21);
     pb.update_save(b);
 
     b = 2;
     pb.sieve_out(3);
-    test_phiyb(pb, b, phi22);
+    check_phiyb(pb, b, phi22);
     pb.update_save(b);
 }
 
