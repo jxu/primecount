@@ -10,35 +10,40 @@
 
 using namespace std;
 
+const uint32_t MSB_MASK = 1 << 31;
+
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
-// only holds 32-bit values
+// only holds 31-bit values, as sign bit it used to track if already marked
+// (using the sign-bit saves a little space and locality by not keeping a
+// bool array, but not any faster)
 class fenwick_tree
 {
 private:
-    size_t          len; // 0-based len
-    vector<int32_t> t;   // 1-based tree, indexes [1:len]
-    vector<bool>    ind; // 0/1 to track [pmin(y) > pb]
+    size_t           len; // 0-based len
+    vector<uint32_t> t;   // 1-based tree, indexes [1:len]
+                          // also uses sign bit
 
 public:
     // init array of 1s of length psize
     fenwick_tree(size_t psize) :
         len(psize)
     {
+        assert(psize < MSB_MASK);
         reset();
     }
 
-    // reset ind to all 1s and reconstruct t
+    // reset reconstruct t
     void reset()
     {
-        ind.assign(len + 1, 1);
         t.assign(len + 1, 0);
         // linear time construction
         for (size_t i = 1; i <= len; ++i)
         {
-            t[i] += ind[i-1];
+            t[i] += 1; // start as if big array of 1s
             size_t r = i + (i & -i);
-            if (r <= len) t[r] += t[i];
+            if (r <= len) 
+                t[r] += t[i];
         }
     }
 
@@ -48,20 +53,20 @@ public:
         assert(r+1 < t.size());
         int32_t s = 0;
         for (++r; r > 0; r -= r & -r)
-            s += t[r];
+            s += t[r] & (~MSB_MASK);
         return s;
     }
 
-    // will only decrease if ind[i] is not already marked
+    // will only decrease if t[i] is not already marked
     // 0-based input
     void try_decrease(size_t i)
     {
-        assert(i < ind.size());
-        if (ind[i])
+        assert(i < t.size());
+        if (!(t[i] & MSB_MASK)) // not marked
         {
-            ind[i] = 0;
+            t[i] |= MSB_MASK; // mark
             for (++i; i <= len; i += i & -i)
-                --t[i];
+                --t[i]; // should work with MSB
         }
     }
 };
