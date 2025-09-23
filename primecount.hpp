@@ -53,8 +53,8 @@ public:
         assert(r+1 < t.size());
         int32_t s = 0;
         for (++r; r > 0; r -= r & -r)
-            s += t[r] & (~MSB_MASK);
-        return s;
+            s += t[r]; // ignore sign bit
+        return s & (~MSB_MASK);
     }
 
     // will only decrease if t[i] is not already marked
