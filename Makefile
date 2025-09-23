@@ -12,6 +12,6 @@ debug: tests
 tests: tests.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
-primecount: main.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $^
+primecount: main.cpp primecount.hpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
