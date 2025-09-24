@@ -84,11 +84,7 @@ int64_t ceil_div(int64_t x, int64_t y)
 // For b from 1 to a: 
 //   Sieve out pb
 //   Update S1b and S2b
-//
-// TODO: update 
-// and functions to compute phi(y,b)
-// phi(y,b) = count nums <= y not divisible by the first b primes
-// i.e. not p_b-smooth
+
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
 
@@ -314,7 +310,8 @@ public:
         return S0;
     }
 
-    // phi(y, b) = phi_block partial sum + base phi(zk1 - 1, b)
+    // phi(y,b) = sum over n <= y of [p_min(n) > p_b]
+    // i.e. count not p_b-smooth
     int64_t phiyb(const PhiBlock& phi_block, int64_t y, int64_t b) const
     {
         return phi_block.sum_to(y) + phi_save[b];
