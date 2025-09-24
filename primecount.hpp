@@ -33,7 +33,7 @@ public:
         reset();
     }
 
-    // reset reconstruct t
+    // reset reconstruct t TODO: remove
     void reset()
     {
         t.assign(len + 1, 0);
@@ -85,8 +85,19 @@ inline int64_t ceil_div(int64_t x, int64_t y)
 }
 
 
-// Represents Bk = [zk1, zk) and functions to compute phi(y,b)
-// phi(y,b) = count (pos) integers <= y not divisible by the first b primes
+// Represents Bk = [zk1, zk) that partition [1, ceil(z)]
+// The interval size should be O(iacbrtx) in theory
+//
+// In the whole computation, Bk processed sequentially for k = 1 to K 
+// (potentially parallelizable by tracking phi(zk1-1,b) base values used)
+// Within each Bk:
+// For b from 1 to a: 
+//   Sieve out pb
+//   Update S1b and S2b
+//
+// TODO: update 
+// and functions to compute phi(y,b)
+// phi(y,b) = count nums <= y not divisible by the first b primes
 // i.e. not p_b-smooth
 // The physical block size is half the logical size by only storing odd values
 // For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
@@ -94,35 +105,23 @@ inline int64_t ceil_div(int64_t x, int64_t y)
 class PhiBlock
 {
 public:
-    size_t           bsize;     // logical block size
-    size_t           psize;     // physical block size
     size_t           zk1;       // z_{k-1}, block lower bound (inclusive)
     size_t           zk;        // z_k, block upper bound (exclusive)
+    size_t           bsize;     // logical block size
+    size_t           psize;     // physical block size
+ 
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
 
-    // phi_save(k,b) = phi(zk1-1,b) from prev block, for implicit b
-    // c <= b < a-1
-    vector<int64_t> phi_save;
-
-    // init block at k=1
-    PhiBlock(size_t a, size_t bsize) :
-        bsize(bsize),
-        psize(bsize / 2),  // actually only store odd values
-        phi_sum(psize),
-        phi_save(a + 1, 0)
+    // construct new block without k or b explicitly
+    PhiBlock(size_t zk1, size_t zk) :
+        zk1(zk1),
+        zk(zk),
+        bsize(zk - zk1),
+        psize(bsize / 2),
+        phi_sum(psize)
+        //phi_save(a + 1, 0)
     {
-        assert(bsize % 2 == 0); // only tested even sizes
-    }
-
-    void new_block(size_t k)
-    {
-        // TODO: more flexible zk1 and zk?
-        zk1 = bsize * (k-1) + 1;
-        zk = bsize * k + 1;
-        phi_sum.reset();
-        // does not reset phi_save!
-
-        cout << "block [" << zk1 << "," << zk << ")\n";
+        //cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
     // translate into actual index into tree
@@ -131,12 +130,13 @@ public:
         return (y - zk1)/2;
     }
 
-    // phi(y,b) compute
-    int64_t sum_to(size_t y, size_t b) const
+    // sum contribution of this block to phi(y,b)
+    // = phi(y,b) - phi(zk1 - 1, b) base
+    int64_t sum_to(size_t y) const
     {
         assert(y >= zk1);
         assert(y < zk);
-        return phi_save[b] + phi_sum.sum_to(tree_index(y));
+        return phi_sum.sum_to(tree_index(y));
     }
 
     // sieve out p_b for this block
@@ -154,10 +154,6 @@ public:
         }
     }
 
-    void update_save(size_t b)
-    {
-        phi_save[b] += phi_sum.sum_to(psize-1);
-    }
 };
 
 class Primecount
@@ -182,6 +178,13 @@ public:
     vector<int32_t> PRIMES;      // primes <= acbrtx
     vector<int32_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
     vector<int32_t> PHI_C;       // phi(x,c) over [1,Q]
+
+
+    // phi_save(b) = phi(zk1-1,b) from prev block B_{k-1}
+    // the k is implicit
+    // c <= b < a-1
+    vector<int64_t> phi_save;
+    int64_t K; // max k for blocks
 
 
     Primecount(int64_t x, int64_t alpha, size_t bsize) :
@@ -235,6 +238,10 @@ public:
         assert((int64_t)C <= astar);
 
         pre_phi_c(C);
+
+        // future: dynamically size z_k's 
+        K = (Z + 1) / BSIZE + 1;
+        phi_save.assign(a + 1, 0);
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -317,6 +324,12 @@ public:
         return S0;
     }
 
+    // phi(y, b) = phi_block partial sum + base phi(zk1 - 1, b)
+    int64_t phiyb(const PhiBlock& phi_block, int64_t y, int64_t b) const
+    {
+        return phi_block.sum_to(y) + phi_save[b];
+    }
+
     // Algorithm 1
     int64_t S1_iter(const size_t b,
                     const PhiBlock& phi_block,
@@ -334,7 +347,7 @@ public:
 
             if (abs(MU_PMIN[mb]) > pb1)
             {
-                S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y, b);
+                S1 -= sgn(MU_PMIN[mb]) * phiyb(phi_block, y, b);
             }
         }
         return S1;
@@ -362,7 +375,7 @@ public:
                 }
                 else // step 8 (contribution using phi_block)
                 {
-                    S2b += phi_block.sum_to(y, b);
+                    S2b += phiyb(phi_block, y, b);
                     --d2b;
                     // repeat loop
                 }
@@ -449,7 +462,7 @@ public:
                     return P2; // finish this block
 
                 // phi(y,a)
-                int64_t phi = phi_block.sum_to(y, a);
+                int64_t phi = phiyb(phi_block, y, a);
                 P2 += phi + a - 1;
                 ++v; // count new prime
             }
@@ -486,8 +499,6 @@ public:
         vector<bool> aux;            // auxiliary sieve to track primes found
         bool p2done = false;         // flag for algorithm terminated
 
-        PhiBlock phi_block(a, BSIZE);
-
 
         // Init S2 vars
         for (int64_t b = astar; b < a - 1; ++b)
@@ -509,7 +520,12 @@ public:
         for (size_t k = 1; ; ++k)
         {
             // init new block
-            phi_block.new_block(k);
+            // TODO: more flexible zk1 and zk?
+            size_t zk1 = BSIZE * (k-1) + 1;
+            size_t zk = BSIZE * k + 1;
+
+            // construct new phi_block
+            PhiBlock phi_block = PhiBlock(zk1, zk);
             if (phi_block.zk1 > (size_t)Z) break;
 
             // For each b...
@@ -535,8 +551,9 @@ public:
                 else if (b == a && !p2done)
                     P2 += P2_iter(phi_block, u, v, w, aux, p2done);
 
-                // for next block k
-                phi_block.update_save(b);
+                // update saved base for next block k
+                phi_save[b] += phi_block.sum_to(phi_block.zk - 1);
+
             }
         }
 
