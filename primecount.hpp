@@ -173,11 +173,11 @@ public:
     int64_t a;         // pi(alpha cbrt(X))
     int64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
 
-    // precomputed tables (assume alpha cbrt X < INT32_MAX)
-    vector<int32_t> MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
-    vector<int32_t> PRIMES;      // primes <= acbrtx
-    vector<int32_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
-    vector<int32_t> PHI_C;       // phi(x,c) over [1,Q]
+    // precomputed tables
+    vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
+    vector<int64_t> PRIMES;      // primes <= acbrtx
+    vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
+    vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
 
 
     // phi_save(b) = phi(zk1-1,b) from prev block B_{k-1}
