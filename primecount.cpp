@@ -324,11 +324,13 @@ public:
     // Algorithm 1
     int64_t S1_iter(const size_t b,
                     const PhiBlock& phi_block,
-                    int64_t& mb)
+                    int64_t mb)
     {
         int64_t S1 = 0;
         int64_t pb1 = PRIMES[b+1];
         // m decreasing
+        mb = min(mb, X / (int64_t)(phi_block.zk1 * pb1));
+
         for (; mb * pb1 > IACBRTX; --mb)
         {
             size_t y = X / (mb * pb1);
@@ -353,6 +355,13 @@ public:
     {
         int64_t S2b = 0;
         int64_t pb1 = PRIMES[b+1];
+
+        // upper bound for d2b?
+        int64_t dm = X / (pb1 * phi_block.zk1);
+        if (dm < IACBRTX)
+        {
+            d2b = min(d2b, PRIME_COUNT[dm]);
+        }
 
         while (d2b > b + 1) // step 2, main loop
         {
@@ -552,7 +561,10 @@ public:
 
                 // S2 leaves, b in [astar, a-1)
                 else if (astar <= b && b < a - 1)
+                {
+                    // don't save d2[b] between Bk
                     S2[b] += S2_iter(b, phi_block, d2[b], t[b]);
+                }
 
                 // phi2, after sieved out first a primes
                 else if (b == a && !p2done)
