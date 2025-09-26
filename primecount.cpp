@@ -347,8 +347,8 @@ public:
     // Algorithm 2 hell
     int64_t S2_iter(const int64_t b,
                     const PhiBlock& phi_block,
-                    int64_t& d2b,
-                    char& t // t[b], different from other tb
+                    int64_t d2b,
+                    char t // t[b], different from other tb
                 )
     {
         int64_t S2b = 0;
@@ -357,6 +357,12 @@ public:
         while (d2b > b + 1) // step 2, main loop
         {
             int64_t y = X / (pb1 * PRIMES[d2b]);
+
+            if (y < phi_block.zk1)
+            {
+                --d2b;
+                continue;
+            }
 
             if (t == 2) // hard leaves
             {
