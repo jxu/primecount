@@ -2,11 +2,11 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
+#include <stdexcept>
 #include <cstdint>
 
 using namespace std;
 
-const uint32_t MSB_MASK = 1 << 31;
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
@@ -19,6 +19,7 @@ private:
     size_t           len; // 0-based len
     vector<uint32_t> t;   // 1-based tree, indexes [1:len]
                           // also uses sign bit
+    const uint32_t   MSB_MASK = 1 << 31;
 
 public:
     // init array of 1s of length psize
@@ -26,7 +27,9 @@ public:
         len(psize),
         t(len + 1, 0)
     {
-        assert(psize < MSB_MASK);
+        if (psize & MSB_MASK)
+            throw length_error("psize too big");
+
         // linear time construction
         for (size_t i = 1; i <= len; ++i)
         {
@@ -668,7 +671,6 @@ int main(int argc, char* argv[])
         alpha = atoi(argv[2]);
         bsize = atoi(argv[3]);
     }
-
 
     cout << "Computing for X = " << X << endl;
     cout << "Block size = " << bsize << endl;
