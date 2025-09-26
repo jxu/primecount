@@ -40,7 +40,6 @@ public:
     // sum values a[0..r] (0-based)
     int32_t sum_to(size_t r) const
     {
-        //cout << "fw " << r << " " << t.size() << endl;
         assert(r+1 < t.size());
         int32_t s = 0;
         for (++r; r > 0; r -= r & -r)
@@ -124,7 +123,6 @@ public:
     {
         assert(y >= zk1);
         assert(y < zk);
-        //cout << "st " << y << endl;
         return phi_sum.sum_to(tree_index(y));
     }
 
@@ -643,7 +641,7 @@ void test_phi_block()
 
 int main(int argc, char* argv[])
 {
-    // special test mode
+    // special test mode by supplying no arguments
     if (argc == 1)
     {
         test_fenwick_tree();
@@ -652,31 +650,31 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (!(argc == 2 || argc == 3))
+    if (!(argc == 2 || argc == 4))
     {
-        cerr << "Usage: ./primecount X [ALPHA]\n";
+        cerr << "Usage: ./primecount X [ALPHA BLOCKSIZE]\n";
         return 1;
     }
 
-    // setup global constants
+    // setup primecount tuning parameters to pass in
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
-    long X = atof(argv[1]);
-    long alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
+    int64_t X = atof(argv[1]);
+    int64_t alpha = max(2., pow(log10(X), 3) / 150); // empirical O(log^3 x)
+    int64_t bsize = 1 << 20; // empirical block size
 
-    if (argc == 3) // override defaults
+    if (argc == 4) // override defaults
     {
         alpha = atoi(argv[2]);
+        bsize = atoi(argv[3]);
     }
 
-    // TODO: set from command line
-    size_t BSIZE = 1 << 20;
 
     cout << "Computing for X = " << X << endl;
-    cout << "Block size = " << BSIZE << endl;
+    cout << "Block size = " << bsize << endl;
     cout << "Alpha = " << alpha << endl;
 
-    Primecount p(X, alpha, BSIZE);
+    Primecount p(X, alpha, bsize);
 
     cout << p.primecount() << endl;
 }
