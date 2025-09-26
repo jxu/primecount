@@ -173,7 +173,7 @@ public:
     // the k is implicit
     // c <= b < a-1
     vector<int64_t> phi_save;
-    int64_t K; // max k for blocks
+    size_t K; // max k for blocks
 
 
     Primecount(int64_t x, int64_t alpha, size_t bsize) :
@@ -507,34 +507,23 @@ public:
         }
 
         // create block endpoints
-        const int BLOCK_BITS_MIN = 16;
-        const int BLOCK_BITS_MAX = 30;
-        vector<size_t> zks = {1};
-
-        for (int i = BLOCK_BITS_MIN; i <= BLOCK_BITS_MAX; ++i)
+        // Dynamic block size of powers of 2 didn't make it faster (#5)
+        // but I'm leaving in being able to specify zk endpoints
+        
+        vector<size_t> zks;
+        for (size_t i = 1; i <= Z + BSIZE; i += BSIZE)
         {
-            zks.push_back(1 + (1ULL << i));
+            zks.push_back(i);
         }
-
-        const size_t BLOCK_SIZE_MAX = 1ULL << BLOCK_BITS_MAX;
-
-        size_t s = BLOCK_SIZE_MAX;
-
-        while (s <= Z)
-        {
-            s += BLOCK_SIZE_MAX;
-            zks.push_back(s + 1);
-        }
+        
+        K = zks.size() - 1;
 
         //Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
-        for (size_t k = 1; ; ++k)
+        for (size_t k = 1; k <= K; ++k)
         {
             // init new block
-            // TODO: more flexible zk1 and zk?
             size_t zk1 = zks[k-1];
             size_t zk = zks[k];
-
-            if (zk1 > (size_t)Z) break;
 
             // construct new phi_block
             PhiBlock phi_block = PhiBlock(zk1, zk);
