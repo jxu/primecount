@@ -40,6 +40,7 @@ public:
     // sum values a[0..r] (0-based)
     int32_t sum_to(size_t r) const
     {
+        //cout << "fw " << r << " " << t.size() << endl;
         assert(r+1 < t.size());
         int32_t s = 0;
         for (++r; r > 0; r -= r & -r)
@@ -107,7 +108,8 @@ public:
         phi_sum(psize)
         //phi_save(a + 1, 0)
     {
-        //cout << "block [" << zk1 << "," << zk << ")\n";
+        assert(psize % 2 == 0);
+        cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
     // translate into actual index into tree
@@ -122,6 +124,7 @@ public:
     {
         assert(y >= zk1);
         assert(y < zk);
+        //cout << "st " << y << endl;
         return phi_sum.sum_to(tree_index(y));
     }
 
@@ -153,7 +156,7 @@ public:
     // global constants
     int64_t X;         // Main value to compute pi(X) for
     size_t  Q;         // phi_c table size, shouldn't be too large
-    int64_t Z;         // X^(2/3) / alpha (approx)
+    size_t  Z;         // X^(2/3) / alpha (approx)
     int64_t ISQRTX;    // floor(sqrt(X))
     int64_t IACBRTX;   // floor(alpha cbrt(X))
     int64_t a;         // pi(alpha cbrt(X))
@@ -503,17 +506,38 @@ public:
             t[b] = 0;
         }
 
-        //Main segmented sieve: For each interval Bk = [z_{k-1}, z_k)
+        // create block endpoints
+        const int BLOCK_BITS_MIN = 16;
+        const int BLOCK_BITS_MAX = 30;
+        vector<size_t> zks = {1};
+
+        for (int i = BLOCK_BITS_MIN; i <= BLOCK_BITS_MAX; ++i)
+        {
+            zks.push_back(1 + (1ULL << i));
+        }
+
+        const size_t BLOCK_SIZE_MAX = 1ULL << BLOCK_BITS_MAX;
+
+        size_t s = BLOCK_SIZE_MAX;
+
+        while (s <= Z)
+        {
+            s += BLOCK_SIZE_MAX;
+            zks.push_back(s + 1);
+        }
+
+        //Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
         for (size_t k = 1; ; ++k)
         {
             // init new block
             // TODO: more flexible zk1 and zk?
-            size_t zk1 = BSIZE * (k-1) + 1;
-            size_t zk = BSIZE * k + 1;
+            size_t zk1 = zks[k-1];
+            size_t zk = zks[k];
+
+            if (zk1 > (size_t)Z) break;
 
             // construct new phi_block
             PhiBlock phi_block = PhiBlock(zk1, zk);
-            if (phi_block.zk1 > (size_t)Z) break;
 
             // For each b...
             // start at 2 to sieve out odd primes
