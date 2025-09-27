@@ -170,10 +170,6 @@ public:
     vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
 
 
-    // phi_save(b) = phi(zk1-1,b) from prev block B_{k-1}
-    // the k is implicit
-    // c <= b < a-1
-    vector<int64_t> phi_save;
     size_t K; // max k for blocks
 
 
@@ -231,7 +227,6 @@ public:
 
         // future: dynamically size z_k's 
         K = (Z + 1) / BSIZE + 1;
-        phi_save.assign(a + 1, 0);
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -316,19 +311,21 @@ public:
 
     // phi(y,b) = sum over n <= y of [p_min(n) > p_b]
     // i.e. count not p_b-smooth
-    int64_t phiyb(const PhiBlock& phi_block, int64_t y, int64_t b) const
-    {
-        return phi_block.sum_to(y) + phi_save[b];
-    }
+    //int64_t phiyb(const PhiBlock& phi_block, int64_t y, int64_t b) const
+    //{
+     //   return phi_block.sum_to(y) + phi_save[b];
+    //}
 
     // Algorithm 1
-    int64_t S1_iter(const size_t b,
-                    const PhiBlock& phi_block,
-                    int64_t mb)
+    int64_t S1_iter(
+        const size_t b,
+        const PhiBlock& phi_block,
+        int64_t mb,
+        int64_t& phi_defer)
     {
         int64_t S1 = 0;
         int64_t pb1 = PRIMES[b+1];
-        // m decreasing
+        // m decreasing, fixed upper bound
         mb = min(mb, X / (int64_t)(phi_block.zk1 * pb1));
 
         for (; mb * pb1 > IACBRTX; --mb)
@@ -340,18 +337,20 @@ public:
 
             if (abs(MU_PMIN[mb]) > pb1)
             {
-                S1 -= sgn(MU_PMIN[mb]) * phiyb(phi_block, y, b);
+                S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y);
+                phi_defer -= sgn(MU_PMIN[mb]); 
             }
         }
         return S1;
     }
 
     // Algorithm 2 hell
-    int64_t S2_iter(const int64_t b,
-                    const PhiBlock& phi_block,
-                    int64_t d2b,
-                    char t // t[b], different from other tb
-                )
+    int64_t S2_iter(
+        const int64_t b,
+        const PhiBlock& phi_block,
+        int64_t d2b,
+        char t, // t[b], different from other tb
+        int64_t& phi_defer)
     {
         int64_t S2b = 0;
         int64_t pb1 = PRIMES[b+1];
@@ -367,7 +366,7 @@ public:
         {
             int64_t y = X / (pb1 * PRIMES[d2b]);
 
-            if (y < phi_block.zk1)
+            if ((size_t)y < phi_block.zk1)
             {
                 --d2b;
                 continue;
@@ -381,7 +380,8 @@ public:
                 }
                 else // step 8 (contribution using phi_block)
                 {
-                    S2b += phiyb(phi_block, y, b);
+                    S2b += phi_block.sum_to(y);
+                    phi_defer += 1;
                     --d2b;
                     // repeat loop
                 }
@@ -429,14 +429,15 @@ public:
     }
 
 
-
     // Algorithm 3: computation of phi2(x,a)
-    int64_t P2_iter(const PhiBlock& phi_block,
-                    int64_t& u,
-                    int64_t& v,
-                    int64_t& w,
-                    vector<bool>& aux,
-                    bool& p2done)
+    int64_t P2_iter(
+        const PhiBlock& phi_block,
+        int64_t& u,
+        int64_t& v,
+        int64_t& w,
+        vector<bool>& aux,
+        bool& p2done,
+        int64_t& phi_defer)
     {
         int64_t P2 = 0;
         // step 3 loop (u decrement steps moved here)
@@ -468,7 +469,8 @@ public:
                     return P2; // finish this block
 
                 // phi(y,a)
-                int64_t phi = phiyb(phi_block, y, a);
+                int64_t phi = phi_block.sum_to(y);
+                phi_defer += 1;
                 P2 += phi + a - 1;
                 ++v; // count new prime
             }
@@ -493,7 +495,7 @@ public:
         vector<int64_t> m(astar, IACBRTX); // S1 decreasing m
 
         // S2
-        vector<int64_t> S2(a-1);
+        vector<int64_t> S2(a+1);
         vector<int64_t> d2(a-1); // S2 decreasing d
         vector<char>  t(a-1);
 
@@ -505,6 +507,14 @@ public:
         vector<bool> aux;            // auxiliary sieve to track primes found
         bool p2done = false;         // flag for algorithm terminated
 
+        // phi_save(k,b) = phi(zk1-1,b) from prev block B_{k-1}
+        vector<vector<int64_t>> phi_save(K+2, vector<int64_t>(a+1, 0));
+
+        // deferred counts of phi_save from phi(y,b) calls
+        auto S1_defer = phi_save; 
+        auto S2_defer = phi_save;
+        auto P2_defer = phi_save;
+ 
 
         // Init S2 vars
         for (int64_t b = astar; b < a - 1; ++b)
@@ -557,24 +567,47 @@ public:
 
                 // S1 leaves, b in [C, astar)
                 if ((int64_t)C <= b && b < astar)
-                    S1 += S1_iter(b, phi_block, m[b]); // pass m[b] by ref
+                {
+                    // TODO: ATOMIC ADD
+                    S1 += S1_iter(b, phi_block, m[b], S1_defer[k][b]);
+                }
 
                 // S2 leaves, b in [astar, a-1)
                 else if (astar <= b && b < a - 1)
                 {
                     // don't save d2[b] between Bk
-                    S2[b] += S2_iter(b, phi_block, d2[b], t[b]);
+                    // TODO: ATOMIC ADD
+                    S2[b] += S2_iter(b, phi_block, d2[b], t[b], S2_defer[k][b]);
                 }
 
                 // phi2, after sieved out first a primes
                 else if (b == a && !p2done)
-                    P2 += P2_iter(phi_block, u, v, w, aux, p2done);
+                {
+                    // TODO: ATOMIC ADD
+                    P2 += P2_iter(phi_block, u, v, w, aux, p2done, P2_defer[k][b]);
+                }
 
                 // update saved base for next block k
-                phi_save[b] += phi_block.sum_to(phi_block.zk - 1);
+                // TODO: move out of this loop
+                phi_save[k+1][b] = phi_save[k][b] + phi_block.sum_to(phi_block.zk - 1);
 
             }
         }
+
+        // sum up all deferred phi(y,b) bases
+        //
+        for (size_t k = 1; k <= K; ++k)
+        {
+            for (size_t b = 2; b <= a; ++b)
+            {
+                //cout << k << " " << b << " " << phi_save[k][b] << endl;
+                S1    += phi_save[k][b] * S1_defer[k][b];
+                S2[b] += phi_save[k][b] * S2_defer[k][b];
+                P2    += phi_save[k][b] * P2_defer[k][b];
+
+            }
+        }
+
 
         int64_t S2_total = 0;
         for (auto x : S2)
