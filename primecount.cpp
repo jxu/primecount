@@ -507,8 +507,10 @@ public:
         vector<bool> aux;            // auxiliary sieve to track primes found
         bool p2done = false;         // flag for algorithm terminated
 
-        // phi_save(k,b) = phi(zk1-1,b) from prev block B_{k-1}
+        // block_sum[k][b] = sum of Bk contents after sieving pb
+        // = phi(zk - 1, b) - phi(zk1 - 1, b)
         vector<vector<int64_t>> phi_save(K+2, vector<int64_t>(a+1, 0));
+        auto block_sum = phi_save;
 
         // deferred counts of phi_save from phi(y,b) calls
         auto S1_defer = phi_save; 
@@ -587,23 +589,25 @@ public:
                     P2 += P2_iter(phi_block, u, v, w, aux, p2done, P2_defer[k][b]);
                 }
 
-                // update saved base for next block k
-                // TODO: move out of this loop
-                phi_save[k+1][b] = phi_save[k][b] + phi_block.sum_to(phi_block.zk - 1);
+                // update saved block sum for this block
+                block_sum[k][b] = phi_block.sum_to(phi_block.zk - 1);
 
             }
         }
 
         // sum up all deferred phi(y,b) bases
         //
+        // phi_save(k,b) = full phi(zk-1,b) from Bk and all previous
         for (size_t k = 1; k <= K; ++k)
         {
-            for (size_t b = 2; b <= a; ++b)
+            for (size_t b = 2; b <= (size_t)a; ++b)
             {
+                // accumulate phi(zk-1,b)
+                phi_save[k][b] = phi_save[k-1][b] + block_sum[k][b];
                 //cout << k << " " << b << " " << phi_save[k][b] << endl;
-                S1    += phi_save[k][b] * S1_defer[k][b];
-                S2[b] += phi_save[k][b] * S2_defer[k][b];
-                P2    += phi_save[k][b] * P2_defer[k][b];
+                S1    += phi_save[k-1][b] * S1_defer[k][b];
+                S2[b] += phi_save[k-1][b] * S2_defer[k][b];
+                P2    += phi_save[k-1][b] * P2_defer[k][b];
 
             }
         }
