@@ -27,7 +27,7 @@ public:
         len(psize),
         t(len + 1, 0)
     {
-        if (psize & MSB_MASK)
+        if (psize >= MSB_MASK)
             throw length_error("psize too big");
 
         // linear time construction
@@ -225,8 +225,6 @@ public:
 
         pre_phi_c(C);
 
-        // future: dynamically size z_k's 
-        K = (Z + 1) / BSIZE + 1;
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -439,6 +437,12 @@ public:
         bool& p2done,
         int64_t& phi_defer)
     {
+        int64_t y = X / u;
+
+        if (y < phi_block.zk1) 
+            return 0;
+
+
         int64_t P2 = 0;
         // step 3 loop (u decrement steps moved here)
         for (; u > IACBRTX; --u)
@@ -507,17 +511,6 @@ public:
         vector<bool> aux;            // auxiliary sieve to track primes found
         bool p2done = false;         // flag for algorithm terminated
 
-        // block_sum[k][b] = sum of Bk contents after sieving pb
-        // = phi(zk - 1, b) - phi(zk1 - 1, b)
-        vector<vector<int64_t>> phi_save(K+2, vector<int64_t>(a+1, 0));
-        auto block_sum = phi_save;
-
-        // deferred counts of phi_save from phi(y,b) calls
-        auto S1_defer = phi_save; 
-        auto S2_defer = phi_save;
-        auto P2_defer = phi_save;
- 
-
         // Init S2 vars
         for (int64_t b = astar; b < a - 1; ++b)
         {
@@ -546,8 +539,19 @@ public:
         
         K = zks.size() - 1;
 
-        //Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
-        for (size_t k = 1; k <= K; ++k)
+        // block_sum[k][b] = sum of Bk contents after sieving pb
+        // = phi(zk - 1, b) - phi(zk1 - 1, b)
+        vector<vector<int64_t>> phi_save(K+2, vector<int64_t>(a+1, 0));
+        auto block_sum = phi_save;
+
+        // deferred counts of phi_save from phi(y,b) calls
+        auto S1_defer = phi_save; 
+        auto S2_defer = phi_save;
+        auto P2_defer = phi_save;
+ 
+        // Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
+        // As a parallel block test: do k backwards!
+        for (size_t k = K; k >= 1; --k)
         {
             // init new block
             size_t zk1 = zks[k-1];
@@ -583,10 +587,11 @@ public:
                 }
 
                 // phi2, after sieved out first a primes
-                else if (b == a && !p2done)
+                else if (b == a)
                 {
                     // TODO: ATOMIC ADD
-                    P2 += P2_iter(phi_block, u, v, w, aux, p2done, P2_defer[k][b]);
+
+                    //P2 += P2_iter(phi_block, u, v, w, aux, p2done, P2_defer[k][b]);
                 }
 
                 // update saved block sum for this block
@@ -595,11 +600,29 @@ public:
             }
         }
 
+        // fully sequential P2
+        // TODO: bad!
+        for (size_t k = 1; k <= K; ++k)
+        {
+            PhiBlock phi_block(zks[k-1], zks[k]);
+            for (size_t b = 2; b <= (size_t)a; ++b)
+            {
+                phi_block.sieve_out(PRIMES[b]);
+            }
+
+            P2 += P2_iter(phi_block, u, v, w, aux, p2done, P2_defer[k][a]);
+            if (p2done) break;
+            
+        }
+
         // sum up all deferred phi(y,b) bases
         //
         // phi_save(k,b) = full phi(zk-1,b) from Bk and all previous
         for (size_t k = 1; k <= K; ++k)
         {
+            // sequential P2
+
+
             for (size_t b = 2; b <= (size_t)a; ++b)
             {
                 // accumulate phi(zk-1,b)
