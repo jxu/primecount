@@ -129,10 +129,10 @@ public:
         return phi_sum.sum_to(tree_index(y));
     }
 
-    // sieve out p_b for this block
+    // sieve out multiples of p_b for this block (including p_b)
     void sieve_out(size_t pb)
     {
-        assert(pb > 2);
+        assert(pb > 2); // 2 already sieved by default
 
         size_t jstart = pb * ceil_div(zk1, pb);
         if (jstart % 2 == 0)
@@ -323,7 +323,7 @@ public:
     {
         int64_t S1 = 0;
         int64_t pb1 = PRIMES[b+1];
-        // m decreasing, fixed upper bound
+        // m decreasing, modified with fixed upper bound
         mb = min(mb, X / (int64_t)(phi_block.zk1 * pb1));
 
         for (; mb * pb1 > IACBRTX; --mb)
@@ -353,7 +353,7 @@ public:
         int64_t S2b = 0;
         int64_t pb1 = PRIMES[b+1];
 
-        // upper bound for d2b?
+        // modified with fixed upper bound for d2b
         int64_t dm = X / (pb1 * phi_block.zk1);
         if (dm < IACBRTX)
         {
@@ -430,59 +430,80 @@ public:
     // Algorithm 3: computation of phi2(x,a)
     int64_t P2_iter(
         const PhiBlock& phi_block,
-        int64_t& u,
         int64_t& v,
-        int64_t& w,
-        vector<bool>& aux,
-        bool& p2done,
         int64_t& phi_defer)
     {
-        int64_t y = X / u;
-
-        if (y < phi_block.zk1) 
-            return 0;
-
-
         int64_t P2 = 0;
-        // step 3 loop (u decrement steps moved here)
-        for (; u > IACBRTX; --u)
+
+        size_t zk1 = phi_block.zk1;
+        size_t zk = phi_block.zk;
+
+        // accumulate v
+        if (zk1 <= ISQRTX)
         {
-            if (u < w)
-            {
-                // new aux sieve [w,u] of size IACBRTX+1
-                w = max(2L, u - IACBRTX);
-                aux.assign(u - w + 1, true);
+            // don't use phi_block because tree op takes log time
+            // instead, maintain aux = [zk1, zk)
+            // sieve interval fully, then count remaining primes
+            vector<bool> aux(phi_block.zk - phi_block.zk1, 1);
 
-                for (size_t i = 1; ; ++i)
+            // don't count 1 as prime
+            // 0 should not be in any interval
+
+            if (phi_block.zk1 <= 1 && 1 < phi_block.zk)
+                aux[1] = 0;
+
+
+            for (int64_t i = 1; i < PRIMES.size(); ++i)
+            {
+                assert(i < PRIMES.size());
+                int64_t p = PRIMES[i];
+                if (p*p >= phi_block.zk)
+                    break;
+               
+                int64_t j0 = max(p*p, p * ceil_div(phi_block.zk1, p));
+                for (int64_t j = j0; j < phi_block.zk; j += p)
                 {
-                    int64_t p = PRIMES[i];
-                    if (p*p > u) break;
-
-                    // only need to sieve values starting at p*p within [w,u]
-                    size_t jstart = max(p*p, p*ceil_div(w,p));
-                    for (size_t j = jstart; j <= (size_t)u; j += p)
-                        aux[j-w] = false;
+                    aux[j - phi_block.zk1] = 0;
                 }
+
+
             }
 
-            // check u to track largest pb not considered yet
-            if (aux[u-w]) // prime
+            // count primes in this interval
+            int64_t pc = 0;
+
+            // if isqrtx is in interval, stop there
+            for (int64_t i = 0; i <= min(aux.size() - 1, ISQRTX - phi_block.zk1); ++i)
             {
-                size_t y = X / u;
-                if (y >= phi_block.zk)
-                    return P2; // finish this block
-
-                // phi(y,a)
-                int64_t phi = phi_block.sum_to(y);
-                phi_defer += 1;
-                P2 += phi + a - 1;
-                ++v; // count new prime
+                if (aux[i]) ++pc;
             }
+
+
+            // TODO: ATOMIC ADD
+            v += pc;
+
+            // add pi(x / pb) where x / pb is in interval
+            for (int64_t u = min(X / zk1, (size_t) ISQRTX); u > IACBRTX; --u)
+
+            {
+                int64_t y = X / u; // increasing
+
+                if (y >= zk) break;
+                if (y < zk1) continue;
+
+                // if u is prime
+                if (aux[u - zk1]) 
+                {
+                    // ATOMIC ADD
+                    P2 += phi_block.sum_to(y) + a - 1;
+                    phi_defer += 1;
+                }
+
+
+            }
+
         }
 
-        // step 3 terminate
-        P2 -= v * (v - 1) / 2;
-        p2done = true;
         return P2;
     }
 
@@ -505,11 +526,15 @@ public:
 
         // Phi2
         int64_t P2 = a * (a-1) / 2; // starting sum
-        int64_t u = ISQRTX;         // largest p_b not considered yet
-        int64_t v = a;              // count number of primes up to sqrt(x)
-        int64_t w = u + 1;          // track first integer represented in aux
-        vector<bool> aux;            // auxiliary sieve to track primes found
-        bool p2done = false;         // flag for algorithm terminated
+        //int64_t u = ISQRTX;         // largest p_b not considered yet
+        //int64_t v = a;              // count number of primes up to sqrt(x)
+        //int64_t w = u + 1;          // track first integer represented in aux
+        //vector<bool> aux;            // auxiliary sieve to track primes found
+        //bool p2done = false;         // flag for algorithm terminated
+        
+
+        // new variables
+        int64_t v = 0;
 
         // Init S2 vars
         for (int64_t b = astar; b < a - 1; ++b)
@@ -571,6 +596,9 @@ public:
                 // sieve out p_b for this block (including <= C)
                 phi_block.sieve_out(pb);
 
+                // update saved block sum for this block
+                block_sum[k][b] = phi_block.sum_to(phi_block.zk - 1);
+
                 // S1 leaves, b in [C, astar)
                 if ((int64_t)C <= b && b < astar)
                 {
@@ -589,40 +617,20 @@ public:
                 // phi2, after sieved out first a primes
                 else if (b == a)
                 {
-                    // TODO: ATOMIC ADD
-
-                    //P2 += P2_iter(phi_block, u, v, w, aux, p2done, P2_defer[k][b]);
+                    P2 += P2_iter(phi_block, v, P2_defer[k][b]); 
                 }
 
-                // update saved block sum for this block
-                block_sum[k][b] = phi_block.sum_to(phi_block.zk - 1);
-
             }
         }
 
-        // fully sequential P2
-        // TODO: bad!
-        for (size_t k = 1; k <= K; ++k)
-        {
-            PhiBlock phi_block(zks[k-1], zks[k]);
-            for (size_t b = 2; b <= (size_t)a; ++b)
-            {
-                phi_block.sieve_out(PRIMES[b]);
-            }
-
-            P2 += P2_iter(phi_block, u, v, w, aux, p2done, P2_defer[k][a]);
-            if (p2done) break;
-            
-        }
+        // Finalize P2
+        P2 -= v*(v-1)/2;
 
         // sum up all deferred phi(y,b) bases
         //
         // phi_save(k,b) = full phi(zk-1,b) from Bk and all previous
         for (size_t k = 1; k <= K; ++k)
         {
-            // sequential P2
-
-
             for (size_t b = 2; b <= (size_t)a; ++b)
             {
                 // accumulate phi(zk-1,b)
@@ -639,6 +647,8 @@ public:
         int64_t S2_total = 0;
         for (auto x : S2)
             S2_total += x;
+
+        cout << "v = " << v << endl;
 
         // accumulate final results
         cout << "S1 = " << S1 << endl;
