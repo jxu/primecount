@@ -428,6 +428,8 @@ public:
 
 
     // Algorithm 3: computation of phi2(x,a)
+    // Modification to original algorithm: use aux sieve [u,w] limited to
+    // y's range in [zk1,zk) rather than acbrtx size
     int64_t P2_iter(
         const PhiBlock& phi_block,
         int64_t& v,
@@ -439,68 +441,54 @@ public:
         size_t zk = phi_block.zk;
 
         // accumulate v
-        if (zk1 <= ISQRTX)
+        // maintain aux sieve, u = tracking pb, y = x / u
+        // x/zk < u <= x/zk1
+        // iacbrtx < u <= isqrtx
+        size_t u = min((size_t)ISQRTX, X / zk1);
+        size_t w = max((size_t)IACBRTX, X / zk) + 1;
+
+        if (u < w) return 0;
+        
+        cout << "[w,u] " << w << " " << u << endl;
+
+        if (u <= (size_t)IACBRTX) // can terminate
+            return 0;
+
+        assert(u >= w);
+
+        // sieve interval [w,u] fully, then count remaining primes
+        vector<bool> aux(u - w + 1, 1);
+
+        for (size_t i = 1; ; ++i)
         {
-            // don't use phi_block because tree op takes log time
-            // instead, maintain aux = [zk1, zk)
-            // sieve interval fully, then count remaining primes
-            vector<bool> aux(phi_block.zk - phi_block.zk1, 1);
-
-            // don't count 1 as prime
-            // 0 should not be in any interval
-
-            if (phi_block.zk1 <= 1 && 1 < phi_block.zk)
-                aux[1] = 0;
-
-
-            for (int64_t i = 1; i < PRIMES.size(); ++i)
+            assert(i < PRIMES.size());
+            int64_t p = PRIMES[i];
+            if (p*p > u)
+                break;
+            
+            // only need to start marking multiples at p^2
+            size_t j0 = max(p*p, p * ceil_div(w, p));
+            for (size_t j = j0; j <= u; j += p)
             {
-                assert(i < PRIMES.size());
-                int64_t p = PRIMES[i];
-                if (p*p >= phi_block.zk)
-                    break;
-               
-                int64_t j0 = max(p*p, p * ceil_div(phi_block.zk1, p));
-                for (int64_t j = j0; j < phi_block.zk; j += p)
-                {
-                    aux[j - phi_block.zk1] = 0;
-                }
-
-
+                aux[j - w] = 0;
             }
+        }
 
-            // count primes in this interval
-            int64_t pc = 0;
+        // add pi(x / pb) where x / pb is in interval
+        for (; u >= w; --u)
+        {
+            // skip loop if u isn't prime
+            if (aux[u - w] == 0)
+                continue;
 
-            // if isqrtx is in interval, stop there
-            for (int64_t i = 0; i <= min(aux.size() - 1, ISQRTX - phi_block.zk1); ++i)
-            {
-                if (aux[i]) ++pc;
-            }
+            size_t y = X / u; // increasing
 
+            if (y >= zk) break;
 
-            // TODO: ATOMIC ADD
-            v += pc;
-
-            // add pi(x / pb) where x / pb is in interval
-            for (int64_t u = min(X / zk1, (size_t) ISQRTX); u > IACBRTX; --u)
-
-            {
-                int64_t y = X / u; // increasing
-
-                if (y >= zk) break;
-                if (y < zk1) continue;
-
-                // if u is prime
-                if (aux[u - zk1]) 
-                {
-                    // ATOMIC ADD
-                    P2 += phi_block.sum_to(y) + a - 1;
-                    phi_defer += 1;
-                }
-
-
-            }
+            // ATOMIC ADD
+            ++v;
+            P2 += phi_block.sum_to(y) + a - 1;
+            phi_defer += 1;
 
         }
 
@@ -526,15 +514,9 @@ public:
 
         // Phi2
         int64_t P2 = a * (a-1) / 2; // starting sum
-        //int64_t u = ISQRTX;         // largest p_b not considered yet
-        //int64_t v = a;              // count number of primes up to sqrt(x)
-        //int64_t w = u + 1;          // track first integer represented in aux
-        //vector<bool> aux;            // auxiliary sieve to track primes found
-        //bool p2done = false;         // flag for algorithm terminated
-        
 
         // new variables
-        int64_t v = 0;
+        int64_t v = a;
 
         // Init S2 vars
         for (int64_t b = astar; b < a - 1; ++b)
@@ -751,7 +733,7 @@ int main(int argc, char* argv[])
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
     int64_t X = atof(argv[1]);
-    int64_t alpha = max(2., pow(log10(X), 3) / 150); // empirical O(log^3 x)
+    int64_t alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
     int64_t bsize = 1 << 20; // empirical block size
 
     if (argc == 4) // override defaults
