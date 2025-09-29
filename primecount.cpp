@@ -2,7 +2,6 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
-#include <stdexcept>
 #include <cstdint>
 
 using namespace std;
@@ -10,30 +9,24 @@ using namespace std;
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
-// only holds 31-bit values, as sign bit it used to track if already marked
-// (using the sign-bit saves a little space and locality by not keeping a
-// bool array, but not any faster)
 class fenwick_tree
 {
 private:
     size_t           len; // 0-based len
+    vector<bool>     ind; // underlying array
     vector<uint32_t> t;   // 1-based tree, indexes [1:len]
-                          // also uses sign bit
-    const uint32_t   MSB_MASK = 1 << 31;
 
 public:
-    // init array of 1s of length psize
-    fenwick_tree(size_t psize) :
-        len(psize),
+    // init with input bool array
+    fenwick_tree(const vector<bool>& ind) :
+        len(ind.size()),
+        ind(ind),
         t(len + 1, 0)
     {
-        if (psize >= MSB_MASK)
-            throw length_error("psize too big");
-
         // linear time construction
         for (size_t i = 1; i <= len; ++i)
         {
-            t[i] += 1; // start as if big array of 1s
+            t[i] += ind[i-1];
             size_t r = i + (i & -i);
             if (r <= len) 
                 t[r] += t[i];
@@ -46,20 +39,20 @@ public:
         assert(r+1 < t.size());
         int32_t s = 0;
         for (++r; r > 0; r -= r & -r)
-            s += t[r]; // ignore sign bit
-        return s & (~MSB_MASK);
+            s += t[r];
+        return s;
     }
 
-    // will only decrease if t[i] is not already marked
+    // will only decrease if ind[i] = 1
     // 0-based input
     void try_decrease(size_t i)
     {
         assert(i < t.size());
-        if (!(t[i] & MSB_MASK)) // not marked
+        if (ind[i])
         {
-            t[i] |= MSB_MASK; // mark
+            ind[i] = 0;
             for (++i; i <= len; i += i & -i)
-                --t[i]; // should work with MSB
+                --t[i];
         }
     }
 };
@@ -102,15 +95,15 @@ public:
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
 
     // construct new block without k or b explicitly
-    PhiBlock(size_t zk1, size_t zk) :
+    PhiBlock(const vector<bool>& ind, size_t zk1, size_t zk) :
         zk1(zk1),
         zk(zk),
         bsize(zk - zk1),
         psize(bsize / 2),
-        phi_sum(psize)
-        //phi_save(a + 1, 0)
+        phi_sum(ind)
     {
-        assert(psize % 2 == 0);
+        assert(ind.size() == psize);
+        assert(bsize % 2 == 0);
         cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
@@ -168,6 +161,7 @@ public:
     vector<int64_t> PRIMES;      // primes <= acbrtx
     vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
     vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
+    vector<bool>    F_C;         // f(x,c) = [pmin(x) > p_c]
 
 
     size_t K; // max k for blocks
@@ -274,19 +268,27 @@ public:
         for (size_t i = 1; i <= C; ++i)
             Q *= PRIMES[i];
 
-        PHI_C.resize(Q+1, 1); // index up to Q inclusive
-        PHI_C[0] = 0;
+        PHI_C.resize(Q+1, 0);
+        F_C.resize(Q+1, 1); // index up to Q, inclusive
+        F_C[0] = 0;
 
         for (size_t i = 1; i <= C; ++i)
         {
             int64_t p = PRIMES[i]; // ith prime, mark multiples as 0
             for (size_t j = p; j <= Q; j += p)
-                PHI_C[j] = 0;
+                F_C[j] = 0;
         }
 
         // accumulate
         for (size_t i = 1; i <= Q; ++i)
-            PHI_C[i] += PHI_C[i-1];
+            PHI_C[i] = F_C[i] + PHI_C[i-1];
+    }
+
+    // phi(y,c) can be found quickly from the table
+    int64_t phi_yc(int64_t y)
+    {
+        assert(y >= 0);
+        return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
     }
 
     // contribution of ordinary leaves to phi(x,a)
@@ -299,8 +301,7 @@ public:
             {
                 int64_t y = X / n;
                 // use precomputed PHI_C table
-                int64_t phi_yc = (y / Q) * PHI_C[Q] + PHI_C[y % Q];
-                S0 += sgn(MU_PMIN[n]) * phi_yc;
+                S0 += sgn(MU_PMIN[n]) * phi_yc(y);
             }
         }
 
@@ -564,19 +565,27 @@ public:
             size_t zk1 = zks[k-1];
             size_t zk = zks[k];
 
-            // construct new phi_block
-            PhiBlock phi_block = PhiBlock(zk1, zk);
+            // construct new phi_block with p1, ..., pc already sieved out
+            // using phi_yc precomputed (Appendix I)
+            // actually not faster than starting at b = 2
+            vector<bool> ind((zk-zk1)/2);
+
+            for (size_t i = 0; i < ind.size(); ++i)
+            {
+                ind[i] = F_C[(zk1 + 2*i) % Q];
+            }
+
+            PhiBlock phi_block = PhiBlock(ind, zk1, zk);
 
             // For each b...
-            // start at 2 to sieve out odd primes
-
-            for (int64_t b = 2; b <= a; ++b)
+            for (int64_t b = C; b <= a; ++b)
             {
                 //cout << "b " << b << endl;
                 int64_t pb = PRIMES[b];
 
-                // sieve out p_b for this block (including <= C)
-                phi_block.sieve_out(pb);
+                // sieve out p_b for this block
+                if ((size_t)b > C)
+                    phi_block.sieve_out(pb);
 
                 // update saved block sum for this block
                 block_sum[k][b] = phi_block.sum_to(phi_block.zk - 1);
@@ -656,7 +665,7 @@ void test_fenwick_tree()
 {
     // example: fenwick tree over array [1,1,1,1,1]
     vector<bool> v1(5, 1);
-    fenwick_tree ft(5);
+    fenwick_tree ft(v1);
     check_ft_equal(ft, v1);
 
     v1[1] = 0;
@@ -682,7 +691,8 @@ void check_phiyb(const PhiBlock& pb, const vector<int>& ref)
 
 void test_phi_block()
 {
-    PhiBlock pb(1, 51);
+    vector<bool> ind(25, 1);
+    PhiBlock pb(ind, 1, 51);
     // by design, phi block already has b = 1, p_b = 2 sieved out
     // sieved out evens, so remaining are 1,3,5,7,... = 1 mod 2
     const vector<int> phi11 =
