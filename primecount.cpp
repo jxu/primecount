@@ -274,7 +274,7 @@ public:
         for (size_t i = 1; i <= C; ++i)
             Q *= PRIMES[i];
 
-        PHI_C.resize(Q+1, 1); // index up to Q inclusive
+        PHI_C.resize(Q+1, 1); // index up to Q, inclusive
         PHI_C[0] = 0;
 
         for (size_t i = 1; i <= C; ++i)
@@ -292,6 +292,7 @@ public:
     // phi(y,c) can be found quickly from the table
     int64_t phi_yc(int64_t y)
     {
+        assert(y >= 0);
         return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
     }
 
@@ -524,21 +525,32 @@ public:
             size_t zk1 = zks[k-1];
             size_t zk = zks[k];
 
-            // construct new phi_block
-            // TODO: optimize from Appendix I
-            const vector<bool> ind((zk-zk1)/2, 1);
+            // construct new phi_block with p1, ..., pc already sieved out
+            // using phi_yc precomputed (Appendix I)
+            // actually not faster than starting at b = 2
+            vector<bool> ind((zk-zk1)/2);
+            int64_t p0 = phi_yc(zk1);
+            int64_t p1 = phi_yc(max((int64_t)zk1 - 2, 0l));
+
+            for (size_t i = 0; i < ind.size(); ++i)
+            {
+                ind[i] = p0 - p1;
+                p1 = p0;
+                p0 = phi_yc(zk1 + 2*i + 2);
+                //ind[i] = phi_yc(zk1 + 2*i) - phi_yc(zk1 + 2*(i-1));
+            }
+
             PhiBlock phi_block = PhiBlock(ind, zk1, zk);
 
             // For each b...
-            // start at 2 to sieve out odd primes
-
-            for (int64_t b = 2; b <= a; ++b)
+            for (int64_t b = C; b <= a; ++b)
             {
                 //cout << "b " << b << endl;
                 int64_t pb = PRIMES[b];
 
-                // sieve out p_b for this block (including <= C)
-                phi_block.sieve_out(pb);
+                // sieve out p_b for this block
+                if ((size_t)b > C)
+                    phi_block.sieve_out(pb);
 
                 // S1 leaves, b in [C, astar)
                 if ((int64_t)C <= b && b < astar)
