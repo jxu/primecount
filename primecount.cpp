@@ -432,20 +432,18 @@ public:
     // y's range in [zk1,zk) rather than acbrtx size
     int64_t P2_iter(
         const PhiBlock& phi_block,
-        int64_t& v,
+        int64_t& vout,
         int64_t& phi_defer)
     {
         int64_t P2 = 0;
-
-        size_t zk1 = phi_block.zk1;
-        size_t zk = phi_block.zk;
+        int64_t v = 0; // thread local v
 
         // accumulate v
         // maintain aux sieve, u = tracking pb, y = x / u
         // x/zk < u <= x/zk1
         // iacbrtx < u <= isqrtx
-        size_t u = min((size_t)ISQRTX, X / zk1);
-        size_t w = max((size_t)IACBRTX, X / zk) + 1;
+        size_t u = min((size_t)ISQRTX, X / phi_block.zk1);
+        size_t w = max((size_t)IACBRTX, X / phi_block.zk) + 1;
 
         if (u < w) return 0;
         
@@ -483,14 +481,16 @@ public:
 
             size_t y = X / u; // increasing
 
-            if (y >= zk) break;
+            if (y >= phi_block.zk) break;
 
-            // ATOMIC ADD
             ++v;
             P2 += phi_block.sum_to(y) + a - 1;
             phi_defer += 1;
 
         }
+
+        // ATOMIC ADD
+        vout += v;
 
         return P2;
     }
