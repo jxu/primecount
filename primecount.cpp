@@ -161,6 +161,7 @@ public:
     vector<int64_t> PRIMES;      // primes <= acbrtx
     vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
     vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
+    vector<bool>    F_C;         // f(x,c) = [pmin(x) > p_c]
 
 
     // phi_save(b) = phi(zk1-1,b) from prev block B_{k-1}
@@ -274,19 +275,20 @@ public:
         for (size_t i = 1; i <= C; ++i)
             Q *= PRIMES[i];
 
-        PHI_C.resize(Q+1, 1); // index up to Q, inclusive
-        PHI_C[0] = 0;
+        PHI_C.resize(Q+1, 0);
+        F_C.resize(Q+1, 1); // index up to Q, inclusive
+        F_C[0] = 0;
 
         for (size_t i = 1; i <= C; ++i)
         {
             int64_t p = PRIMES[i]; // ith prime, mark multiples as 0
             for (size_t j = p; j <= Q; j += p)
-                PHI_C[j] = 0;
+                F_C[j] = 0;
         }
 
         // accumulate
         for (size_t i = 1; i <= Q; ++i)
-            PHI_C[i] += PHI_C[i-1];
+            PHI_C[i] = F_C[i] + PHI_C[i-1];
     }
 
     // phi(y,c) can be found quickly from the table
@@ -529,15 +531,10 @@ public:
             // using phi_yc precomputed (Appendix I)
             // actually not faster than starting at b = 2
             vector<bool> ind((zk-zk1)/2);
-            int64_t p0 = phi_yc(zk1);
-            int64_t p1 = phi_yc(max((int64_t)zk1 - 2, 0l));
 
             for (size_t i = 0; i < ind.size(); ++i)
             {
-                ind[i] = p0 - p1;
-                p1 = p0;
-                p0 = phi_yc(zk1 + 2*i + 2);
-                //ind[i] = phi_yc(zk1 + 2*i) - phi_yc(zk1 + 2*(i-1));
+                ind[i] = F_C[(zk1 + 2*i) % Q];
             }
 
             PhiBlock phi_block = PhiBlock(ind, zk1, zk);
