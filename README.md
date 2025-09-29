@@ -27,6 +27,17 @@ The following benchmarks used a block size of 2^20 and default alpha value. Comp
 
 The powers of 10 in the table match Table IV of the paper. Previously I had only tested smaller values, and starting from x = 10^15 had an overflow bug due to cubing some values. Running with GCC's -ftrapv can detect signed overflow. There was also an issue with crashing where Algorithm 2 sometimes needs $p_{a+1}$; this was mentioned in the paper but I missed it. I tried to use integer math mostly, but the most likely errors will be from imprecise floating point calculations like cbrt(x), where the input double can't even represent every integer past 2^53. I had some exact integer checks for these with __int128 but didn't look through it carefully. 
 
+## Optimizations
+
+- Odd phi block (mentioned in Algorithm 4): simple to index and saves block space to fit into cache
+- ~Fenwick tree sign bit instead of bool array (Appendix):~ saves a little space, but not faster
+- ~Mod 3, 5 wheel in phi block (my idea):~ saves a little space, but not faster and adds a lot of indexing complexity
+- Dynamic block size (section II-D): large blocks are somehow much slower than fixed size blocks (even though paper says block length should be dynamic). But the ability to specify $z_k$ is still implemented
+- Phi block initialization from phi(n,c) table (Algorithm 4): not actually faster but I'm keeping it
+- [WIP] Parallel blocks (not covered in paper): the final frontier
+
+Need more tests!
+
 ## Basics of the Meissel-Lehmer method
 
 Legendre (1808) was the first to notice $\pi(x)$ does not require explicitly determining all primes up to $x$, making use of inclusion-exclusion. The computation uses the Meissel (1870) method, improved by Lehmer (1959),
