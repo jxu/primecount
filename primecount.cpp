@@ -70,6 +70,13 @@ int64_t ceil_div(int64_t x, int64_t y)
     return x / y + (x % y > 0);
 }
 
+// convenient pi upper bound when x is beyond iacbrtx table
+// (Rosser and Schoenfeld 1962)
+double pi_bound(double x)
+{
+    if (x <= 1) return 1;
+    return 1.25506 * x / log(x);
+}
 
 // Represents Bk = [zk1, zk) that partition [1, ceil(z)]
 // The interval size should be O(iacbrtx) in theory
@@ -139,7 +146,6 @@ public:
 
 };
 
-int64_t cnt[4] = {};
 
 class Primecount
 {
@@ -157,16 +163,14 @@ public:
     int64_t IACBRTX;   // floor(alpha cbrt(X))
     int64_t a;         // pi(alpha cbrt(X))
     int64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
-
+    size_t  K;         // max k for blocks
+ 
     // precomputed tables
     vector<int64_t> MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
     vector<int64_t> PRIMES;      // primes <= acbrtx
     vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
     vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
     vector<bool>    F_C;         // f(x,c) = [pmin(x) > p_c]
-
-
-    size_t K; // max k for blocks
 
 
     Primecount(int64_t x, int64_t alpha, size_t bsize) :
@@ -196,8 +200,7 @@ public:
 
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
 
-        // Since p_{a+1} may be needed in S2, we introduce fudge factor
-        // and hope it's less than the prime gap
+        // Since p_{a+1} may be needed in S2, leave margin
         size_t SIEVE_SIZE = IACBRTX + 200;
         sieve_mu_prime(SIEVE_SIZE);
 
@@ -310,24 +313,16 @@ public:
         return S0;
     }
 
-    // phi(y,b) = sum over n <= y of [p_min(n) > p_b]
-    // i.e. count not p_b-smooth
-    //int64_t phiyb(const PhiBlock& phi_block, int64_t y, int64_t b) const
-    //{
-     //   return phi_block.sum_to(y) + phi_save[b];
-    //}
-
     // Algorithm 1
     int64_t S1_iter(
         const size_t b,
         const PhiBlock& phi_block,
-        int64_t mb,
         int64_t& phi_defer)
     {
         int64_t S1 = 0;
         int64_t pb1 = PRIMES[b+1];
         // m decreasing, modified with fixed upper bound
-        mb = min(mb, X / (int64_t)(phi_block.zk1 * pb1));
+        int64_t mb = min(IACBRTX, X / ((int64_t)phi_block.zk1 * pb1));
 
         for (; mb * pb1 > IACBRTX; --mb)
         {
@@ -345,39 +340,32 @@ public:
         return S1;
     }
 
-    double pi_bound(double x)
-    {
-        return 1.25506 * x / log(x);
-    }
-
-    // Algorithm 2 hell
+    // Algorithm 2, reworked from leaves formulas
     int64_t S2_iter(
         const int64_t b,
         const PhiBlock& phi_block,
-        int64_t d2b,
         int64_t& phi_defer)
     {
         int64_t S2b = 0;
-        assert(b+1 < PRIMES.size());
         int64_t pb1 = PRIMES[b+1];
-        size_t zk1 = phi_block.zk1;
-        size_t zk = phi_block.zk;
+        int64_t zk1 = phi_block.zk1;
+        int64_t zk = phi_block.zk;
 
-        int64_t d = a;
+        int64_t d = a; // fixed starting point
 
-        // optimize starting d
-        int64_t y1 = X / (pb1 * zk1);
-        d = min(d, (int64_t)pi_bound(y1));
-
-
-        d = min(d, max((int64_t)pi_bound(double(X) / (pb1 * pb1)), b+1));
+        // attempt to optimize starting d bound
+        // pd <= x / zk1
+        d = min(d, (int64_t)pi_bound(double(X) / (pb1 * zk1)));
+        // non-trivial leaves should satisfy pd <= max(x/pb1^2, pb1)
+        d = min(d, (int64_t)pi_bound(double(X) / (pb1 * pb1)));
        
-        for (; d > b + 1; )
+        while(d > b + 1)
         {
-            if (zk1 == 1) cnt[0]++;
             int64_t pd = PRIMES[d];
             // y is increasing as d is decreasing
             int64_t y = X / (pb1 * pd);
+
+            // make sure y is in [zk1,zk)
             if (y < zk1) 
             {
                 --d;
@@ -386,18 +374,14 @@ public:
             if (y >= zk)
                 break;
 
-            // trivial leaves, should be skipped
+            // trivial leaves, should be skipped since already counted
             if (max(X / (pb1 * pb1), pb1) < pd)
             {
-                if (zk1 == 1) cnt[1]++;
                 --d;
-                //++S2b;
-
             }
             // hard leaves
             else if (y >= IACBRTX)
             {
-                if (zk1 == 1) cnt[3]++;
                 S2b += phi_block.sum_to(y);
                 phi_defer++;
                 --d;
@@ -406,7 +390,6 @@ public:
             // easy leaves
             else
             {
-                if (zk1 == 1) cnt[2]++;
                 int64_t l = PRIME_COUNT[y] - b + 1;
                 int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b + l])];
                 int64_t pd1 = PRIMES[d_ + 1];
@@ -416,21 +399,18 @@ public:
                     // sparse easy leaves
                     S2b += l;
                     --d;
-                } else
+                } 
+                else
                 {
                     // clustered easy leaves are slightly faster
                     S2b += l * (d - d_);
                     d = d_;
                 }
             }
-
         }
 
-
-
-        return S2b; // terminate
+        return S2b;
     }
-
 
     // Algorithm 3: computation of phi2(x,a)
     // Modification to original algorithm: use aux sieve [u,w] limited to
@@ -441,10 +421,9 @@ public:
         int64_t& phi_defer)
     {
         int64_t P2 = 0;
-        int64_t v = 0; // thread local v
+        int64_t v = 0; // thread local v to accumulate
 
-        // accumulate v
-        // maintain aux sieve, u = tracking pb, y = x / u
+        // maintain aux sieve, u = tracking pb starting at max, y = x / u
         // x/zk < u <= x/zk1
         // iacbrtx < u <= isqrtx
         size_t u = min((size_t)ISQRTX, X / phi_block.zk1);
@@ -491,10 +470,9 @@ public:
             ++v;
             P2 += phi_block.sum_to(y) + a - 1;
             phi_defer += 1;
-
         }
 
-        // ATOMIC ADD
+        // ATOMIC ADD to ref
         vout += v;
 
         return P2;
@@ -510,7 +488,6 @@ public:
 
         // S1
         int64_t S1 = 0;
-        vector<int64_t> m(astar, IACBRTX); // S1 decreasing m
 
         // S2
         vector<int64_t> S2(a+1);
@@ -518,8 +495,6 @@ public:
 
         // Phi2
         int64_t P2 = a * (a-1) / 2; // starting sum
-
-        // new variables
         int64_t v = a;
 
         // Init S2 vars
@@ -596,23 +571,22 @@ public:
                 if ((int64_t)C <= b && b < astar)
                 {
                     // TODO: ATOMIC ADD
-                    S1 += S1_iter(b, phi_block, m[b], S1_defer[k][b]);
+                    S1 += S1_iter(b, phi_block, S1_defer[k][b]);
                 }
 
                 // S2 leaves, b in [astar, a-1)
                 else if (astar <= b && b < a - 1)
                 {
-                    // don't save d2[b] between Bk
                     // TODO: ATOMIC ADD
-                    S2[b] += S2_iter(b, phi_block, d2[b], S2_defer[k][b]);
+                    S2[b] += S2_iter(b, phi_block, S2_defer[k][b]);
                 }
 
                 // phi2, after sieved out first a primes
                 else if (b == a)
                 {
+                    // ATOMIC ADD
                     P2 += P2_iter(phi_block, v, P2_defer[k][b]); 
                 }
-
             }
         }
 
@@ -620,35 +594,23 @@ public:
         P2 -= v*(v-1)/2;
 
         // sum up all deferred phi(y,b) bases
-        //
-        // phi_save(k,b) = full phi(zk-1,b) from Bk and all previous
         int64_t S2s = 0;
 
         for (size_t k = 1; k <= K; ++k)
         {
-            for (size_t b = 2; b <= (size_t)a; ++b)
+            for (size_t b = C; b <= (size_t)a; ++b)
             {
                 // accumulate phi(zk-1,b)
+                // phi_save(k,b) = full phi(zk-1,b) from Bk and all previous
                 phi_save[k][b] = phi_save[k-1][b] + block_sum[k][b];
-                //cout << k << " " << b << " " << phi_save[k][b] << endl;
                 S1    += phi_save[k-1][b] * S1_defer[k][b];
                 S2[b] += phi_save[k-1][b] * S2_defer[k][b];
                 P2    += phi_save[k-1][b] * P2_defer[k][b];
-                
             }
         }
 
         for (int64_t b = 0; b <= a; ++b)
             S2s += S2[b];
-
-        for (int i = 0; i < 4; ++i)
-        {
-            cout << cnt[i] << " ";
-        }
-        cout << endl;
-
-
-        cout << "v = " << v << endl;
 
         // accumulate final results
         cout << "S1 = " << S1 << endl;
