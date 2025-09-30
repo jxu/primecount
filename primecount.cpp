@@ -372,35 +372,56 @@ public:
 
         d = min(d, max((int64_t)pi_bound(double(X) / (pb1 * pb1)), b+1));
        
-        for (; d > b + 1; --d)
+        for (; d > b + 1; )
         {
             if (zk1 == 1) cnt[0]++;
             int64_t pd = PRIMES[d];
             // y is increasing as d is decreasing
             int64_t y = X / (pb1 * pd);
-            if (y < zk1)
+            if (y < zk1) 
+            {
+                --d;
                 continue;
+            }
             if (y >= zk)
                 break;
 
+            // trivial leaves, should be skipped
             if (max(X / (pb1 * pb1), pb1) < pd)
             {
                 if (zk1 == 1) cnt[1]++;
+                --d;
                 //++S2b;
 
             }
-            else if (max(Z / pb1, (size_t)pb1) < pd && pd <= min( X / (pb1*pb1), IACBRTX))
-            {
-                if (zk1 == 1) cnt[2]++;
-                S2b += PRIME_COUNT[y] - b + 1;
-
-            }
-            else
+            // hard leaves
+            else if (y >= IACBRTX)
             {
                 if (zk1 == 1) cnt[3]++;
                 S2b += phi_block.sum_to(y);
                 phi_defer++;
+                --d;
+            }
 
+            // easy leaves
+            else
+            {
+                if (zk1 == 1) cnt[2]++;
+                int64_t l = PRIME_COUNT[y] - b + 1;
+                int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b + l])];
+                int64_t pd1 = PRIMES[d_ + 1];
+
+                if (pd1*pd1 <= X / pb1 || d_ <= b)
+                {
+                    // sparse easy leaves
+                    S2b += l;
+                    --d;
+                } else
+                {
+                    // clustered easy leaves are slightly faster
+                    S2b += l * (d - d_);
+                    d = d_;
+                }
             }
 
         }
