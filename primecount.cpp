@@ -359,7 +359,7 @@ public:
         // non-trivial leaves should satisfy pd <= max(x/pb1^2, pb1)
         d = min(d, (int64_t)pi_bound(double(X) / (pb1 * pb1)));
        
-        while(d > b + 1)
+        for (; d > b + 1; --d)
         {
             int64_t pd = PRIMES[d];
             // y is increasing as d is decreasing
@@ -368,7 +368,6 @@ public:
             // make sure y is in [zk1,zk)
             if (y < zk1) 
             {
-                --d;
                 continue;
             }
             if (y >= zk)
@@ -377,35 +376,20 @@ public:
             // trivial leaves, should be skipped since already counted
             if (max(X / (pb1 * pb1), pb1) < pd)
             {
-                --d;
             }
             // hard leaves
             else if (y >= IACBRTX)
             {
                 S2b += phi_block.sum_to(y);
                 phi_defer++;
-                --d;
             }
 
             // easy leaves
+            // can't use clustered leaves because of setting d = d' jumps
             else
             {
-                int64_t l = PRIME_COUNT[y] - b + 1;
-                int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b + l])];
-                int64_t pd1 = PRIMES[d_ + 1];
-
-                if (pd1*pd1 <= X / pb1 || d_ <= b)
-                {
-                    // sparse easy leaves
-                    S2b += l;
-                    --d;
-                } 
-                else
-                {
-                    // clustered easy leaves are slightly faster
-                    S2b += l * (d - d_);
-                    d = d_;
-                }
+                // sparse easy leaves
+                S2b += PRIME_COUNT[y] - b + 1;
             }
         }
 
