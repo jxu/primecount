@@ -139,6 +139,8 @@ public:
 
 };
 
+int64_t cnt[4] = {};
+
 class Primecount
 {
 public:
@@ -343,12 +345,16 @@ public:
         return S1;
     }
 
+    double pi_bound(double x)
+    {
+        return 1.25506 * x / log(x);
+    }
+
     // Algorithm 2 hell
     int64_t S2_iter(
         const int64_t b,
         const PhiBlock& phi_block,
         int64_t d2b,
-        char t, // t[b], different from other tb
         int64_t& phi_defer)
     {
         int64_t S2b = 0;
@@ -360,12 +366,15 @@ public:
         int64_t d = a;
 
         // optimize starting d
-        if (X / (pb1 * zk1) < IACBRTX)
-            d = min(d, PRIME_COUNT[X / (pb1 * zk1)]);
+        int64_t y1 = X / (pb1 * zk1);
+        d = min(d, (int64_t)pi_bound(y1));
+
+
+        d = min(d, max((int64_t)pi_bound(double(X) / (pb1 * pb1)), b+1));
        
         for (; d > b + 1; --d)
         {
-            assert(d < PRIMES.size());
+            if (zk1 == 1) cnt[0]++;
             int64_t pd = PRIMES[d];
             // y is increasing as d is decreasing
             int64_t y = X / (pb1 * pd);
@@ -374,21 +383,22 @@ public:
             if (y >= zk)
                 break;
 
-            if (max(X / (pb1 * pb1), pb1) < pd && pd <= IACBRTX)
+            if (max(X / (pb1 * pb1), pb1) < pd)
             {
-                ++S2b;
+                if (zk1 == 1) cnt[1]++;
+                //++S2b;
 
             }
             else if (max(Z / pb1, (size_t)pb1) < pd && pd <= min( X / (pb1*pb1), IACBRTX))
             {
-                
-                S2b += PRIME_COUNT[X / (pb1 * pd)] - b + 1;
+                if (zk1 == 1) cnt[2]++;
+                S2b += PRIME_COUNT[y] - b + 1;
 
             }
             else
             {
-                
-                S2b += phi_block.sum_to(X / (pb1 * pd));
+                if (zk1 == 1) cnt[3]++;
+                S2b += phi_block.sum_to(y);
                 phi_defer++;
 
             }
@@ -484,7 +494,6 @@ public:
         // S2
         vector<int64_t> S2(a+1);
         vector<int64_t> d2(a-1); // S2 decreasing d
-        vector<char>  t(a-1);
 
         // Phi2
         int64_t P2 = a * (a-1) / 2; // starting sum
@@ -505,10 +514,6 @@ public:
 
             d2[b] = tb - 1;
             S2[b] = a - d2[b];
-            t[b] = 0;
-
-            // TODO: cleanup
-            S2[b] = 0;
         }
 
         // create block endpoints
@@ -578,7 +583,7 @@ public:
                 {
                     // don't save d2[b] between Bk
                     // TODO: ATOMIC ADD
-                    S2[b] += S2_iter(b, phi_block, d2[b], t[b], S2_defer[k][b]);
+                    S2[b] += S2_iter(b, phi_block, d2[b], S2_defer[k][b]);
                 }
 
                 // phi2, after sieved out first a primes
@@ -614,6 +619,12 @@ public:
 
         for (int64_t b = 0; b <= a; ++b)
             S2s += S2[b];
+
+        for (int i = 0; i < 4; ++i)
+        {
+            cout << cnt[i] << " ";
+        }
+        cout << endl;
 
 
         cout << "v = " << v << endl;
