@@ -352,78 +352,51 @@ public:
         int64_t& phi_defer)
     {
         int64_t S2b = 0;
+        assert(b+1 < PRIMES.size());
         int64_t pb1 = PRIMES[b+1];
+        size_t zk1 = phi_block.zk1;
+        size_t zk = phi_block.zk;
 
-        // modified with fixed upper bound for d2b
-        int64_t dm = X / (pb1 * phi_block.zk1);
-        if (dm < IACBRTX)
+        int64_t d = a;
+
+        // optimize starting d
+        if (X / (pb1 * zk1) < IACBRTX)
+            d = min(d, PRIME_COUNT[X / (pb1 * zk1)]);
+       
+        for (; d > b + 1; --d)
         {
-            d2b = min(d2b, PRIME_COUNT[dm]);
-        }
-
-        while (d2b > b + 1) // step 2, main loop
-        {
-            int64_t y = X / (pb1 * PRIMES[d2b]);
-
-            if ((size_t)y < phi_block.zk1)
-            {
-                --d2b;
+            assert(d < PRIMES.size());
+            int64_t pd = PRIMES[d];
+            // y is increasing as d is decreasing
+            int64_t y = X / (pb1 * pd);
+            if (y < zk1)
                 continue;
-            }
+            if (y >= zk)
+                break;
 
-            if (t == 2) // hard leaves
+            if (max(X / (pb1 * pb1), pb1) < pd && pd <= IACBRTX)
             {
-                if ((size_t)y >= phi_block.zk) // step 7
-                {
-                    break; // pause until next block
-                }
-                else // step 8 (contribution using phi_block)
-                {
-                    S2b += phi_block.sum_to(y);
-                    phi_defer += 1;
-                    --d2b;
-                    // repeat loop
-                }
+                ++S2b;
+
             }
-            else // t = 0 or 1, easy leaves
+            else if (max(Z / pb1, (size_t)pb1) < pd && pd <= min( X / (pb1*pb1), IACBRTX))
             {
-                if (y >= IACBRTX)
-                {
-                    t = 2;
-                    // since t = 2 is set and d2 didn't change, the new loop
-                    // will go to step 7
-                }
-                else // step 3/5
-                {
-                    int64_t l = PRIME_COUNT[y] - b + 1;
+                
+                S2b += PRIME_COUNT[X / (pb1 * pd)] - b + 1;
 
-                    if (t == 0) // step 3
-                    {
-                        // d' + 1 is the smallest d for which (12) holds:
-                        // phi(x / (pb1*pd), b) = pi(x / (pb1*pd)) - b + 1
-                        int64_t d_ = PRIME_COUNT[X / (pb1 * PRIMES[b+l])];
-
-                        // step 4
-                        if ((PRIMES[d_+1]*PRIMES[d_+1] <= X / pb1) || (d_ <= b))
-                        {
-                            t = 1; // goto step 6
-                        }
-                        else // step 5, clustered easy leaves
-                        {
-                            S2b += l * (d2b - d_);
-                            d2b = d_;
-                        }
-
-                    }
-                    if (t == 1) // t = 1, sparse easy leaves
-                    {
-                        // step 6
-                        S2b += l;
-                        --d2b;
-                    }
-                }
             }
+            else
+            {
+                
+                S2b += phi_block.sum_to(X / (pb1 * pd));
+                phi_defer++;
+
+            }
+
         }
+
+
+
         return S2b; // terminate
     }
 
@@ -448,7 +421,7 @@ public:
 
         if (u < w) return 0;
         
-        cout << "[w,u] " << w << " " << u << endl;
+        //cout << "[w,u] " << w << " " << u << endl;
 
         if (u <= (size_t)IACBRTX) // can terminate
             return 0;
@@ -533,6 +506,9 @@ public:
             d2[b] = tb - 1;
             S2[b] = a - d2[b];
             t[b] = 0;
+
+            // TODO: cleanup
+            S2[b] = 0;
         }
 
         // create block endpoints
@@ -620,6 +596,8 @@ public:
         // sum up all deferred phi(y,b) bases
         //
         // phi_save(k,b) = full phi(zk-1,b) from Bk and all previous
+        int64_t S2s = 0;
+
         for (size_t k = 1; k <= K; ++k)
         {
             for (size_t b = 2; b <= (size_t)a; ++b)
@@ -630,23 +608,22 @@ public:
                 S1    += phi_save[k-1][b] * S1_defer[k][b];
                 S2[b] += phi_save[k-1][b] * S2_defer[k][b];
                 P2    += phi_save[k-1][b] * P2_defer[k][b];
-
+                
             }
         }
 
+        for (int64_t b = 0; b <= a; ++b)
+            S2s += S2[b];
 
-        int64_t S2_total = 0;
-        for (auto x : S2)
-            S2_total += x;
 
         cout << "v = " << v << endl;
 
         // accumulate final results
         cout << "S1 = " << S1 << endl;
-        cout << "S2 = " << S2_total << endl;
+        cout << "S2 = " << S2s << endl;
         cout << "P2 = " << P2 << endl;
 
-        return S0 + S1 + S2_total + a - 1 - P2;
+        return S0 + S1 + S2s + a - 1 - P2;
     }
 };
 
