@@ -171,7 +171,7 @@ public:
     vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
     vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
     vector<bool>    F_C;         // f(x,c) = [pmin(x) > p_c]
-
+    vector<size_t>  zks;
 
     Primecount(int64_t x, int64_t alpha, size_t bsize) :
         ALPHA(alpha),
@@ -222,8 +222,20 @@ public:
         assert(C >= 2);
         assert((int64_t)C <= astar);
 
+        // precompute tables
         pre_phi_c(C);
 
+
+        // create block endpoints
+        // Dynamic block size of powers of 2 didn't make it faster (#5)
+        // but I'm leaving in being able to specify zk endpoints
+        for (size_t i = 1; i <= Z + BSIZE; i += BSIZE)
+        {
+            zks.push_back(i);
+        }
+        
+        K = zks.size() - 1;
+        cout << "K = " << K << endl;
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -401,11 +413,10 @@ public:
     // y's range in [zk1,zk) rather than acbrtx size
     int64_t P2_iter(
         const PhiBlock& phi_block,
-        int64_t& vout,
+        int64_t& v,
         int64_t& phi_defer)
     {
         int64_t P2 = 0;
-        int64_t v = 0; // thread local v to accumulate
 
         // maintain aux sieve, u = tracking pb starting at max, y = x / u
         // x/zk < u <= x/zk1
@@ -456,9 +467,6 @@ public:
             phi_defer += 1;
         }
 
-        #pragma omp atomic
-        vout += v;
-
         return P2;
     }
 
@@ -479,7 +487,7 @@ public:
 
         // Phi2
         int64_t P2 = a * (a-1) / 2; // starting sum
-        int64_t v = a;
+        vector<int64_t> vs(K + 1, 0);
 
         // Init S2 vars
         for (int64_t b = astar; b < a - 1; ++b)
@@ -496,18 +504,7 @@ public:
             S2[b] = a - d2[b];
         }
 
-        // create block endpoints
-        // Dynamic block size of powers of 2 didn't make it faster (#5)
-        // but I'm leaving in being able to specify zk endpoints
-        
-        vector<size_t> zks;
-        for (size_t i = 1; i <= Z + BSIZE; i += BSIZE)
-        {
-            zks.push_back(i);
-        }
-        
-        K = zks.size() - 1;
-        cout << "K = " << K << endl;
+
 
         // block_sum[k][b] = sum of Bk contents after sieving pb
         // = phi(zk - 1, b) - phi(zk1 - 1, b)
@@ -577,16 +574,14 @@ public:
                 else if (b == a)
                 {
                     #pragma omp atomic
-                    P2 += P2_iter(phi_block, v, P2_defer[k][b]); 
+                    P2 += P2_iter(phi_block, vs[k], P2_defer[k][b]); 
                 }
             }
         }
 
-        // Finalize P2
-        P2 -= v*(v-1)/2;
-
         // sum up all deferred phi(y,b) bases sequentially
         int64_t S2s = 0;
+        int64_t v = a;
 
         for (size_t k = 1; k <= K; ++k)
         {
@@ -599,10 +594,16 @@ public:
                 S2[b] += phi_save[k-1][b] * S2_defer[k][b];
                 P2    += phi_save[k-1][b] * P2_defer[k][b];
             }
+            v += vs[k];
         }
 
         for (int64_t b = 0; b <= a; ++b)
+        {
             S2s += S2[b];
+        }
+
+        // Finalize P2
+        P2 -= v*(v-1)/2;
 
         // accumulate final results
         cout << "S1 = " << S1 << endl;
