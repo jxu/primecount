@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cassert>
 #include <cstdint>
+#include <format>
 
 using namespace std;
 
@@ -111,7 +112,6 @@ public:
     {
         assert(ind.size() == psize);
         assert(bsize % 2 == 0);
-        cout << "block [" << zk1 << "," << zk << ")\n";
     }
 
     // translate into actual index into tree
@@ -456,7 +456,7 @@ public:
             phi_defer += 1;
         }
 
-        // ATOMIC ADD to ref
+        #pragma omp atomic
         vout += v;
 
         return P2;
@@ -507,6 +507,7 @@ public:
         }
         
         K = zks.size() - 1;
+        cout << "K = " << K << endl;
 
         // block_sum[k][b] = sum of Bk contents after sieving pb
         // = phi(zk - 1, b) - phi(zk1 - 1, b)
@@ -519,12 +520,19 @@ public:
         auto P2_defer = phi_save;
  
         // Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
-        // As a parallel block test: do k backwards!
-        for (size_t k = K; k >= 1; --k)
+        // OpenMP parallelized here! 
+        // Dynamic is important because the block computations are 
+        // heavily imbalanced.
+        #pragma omp parallel for schedule(dynamic)
+        for (size_t k = 1; k <= K; ++k)
         {
             // init new block
             size_t zk1 = zks[k-1];
             size_t zk = zks[k];
+
+            // Message may appear broken in multithreading
+            cout << "Start block " << k << " " 
+                << "[" << zk1 << "," << zk << ")\n";
 
             // construct new phi_block with p1, ..., pc already sieved out
             // using phi_yc precomputed (Appendix I)
@@ -554,21 +562,21 @@ public:
                 // S1 leaves, b in [C, astar)
                 if ((int64_t)C <= b && b < astar)
                 {
-                    // TODO: ATOMIC ADD
+                    #pragma omp atomic
                     S1 += S1_iter(b, phi_block, S1_defer[k][b]);
                 }
 
                 // S2 leaves, b in [astar, a-1)
                 else if (astar <= b && b < a - 1)
                 {
-                    // TODO: ATOMIC ADD
+                    #pragma omp atomic
                     S2[b] += S2_iter(b, phi_block, S2_defer[k][b]);
                 }
 
                 // phi2, after sieved out first a primes
                 else if (b == a)
                 {
-                    // ATOMIC ADD
+                    #pragma omp atomic
                     P2 += P2_iter(phi_block, v, P2_defer[k][b]); 
                 }
             }
@@ -577,7 +585,7 @@ public:
         // Finalize P2
         P2 -= v*(v-1)/2;
 
-        // sum up all deferred phi(y,b) bases
+        // sum up all deferred phi(y,b) bases sequentially
         int64_t S2s = 0;
 
         for (size_t k = 1; k <= K; ++k)
@@ -699,7 +707,7 @@ int main(int argc, char* argv[])
     // read float like 1e12 from command line (may not be exact for > 2^53)
     int64_t X = atof(argv[1]);
     int64_t alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
-    int64_t bsize = 1 << 20; // empirical block size
+    int64_t bsize = 1 << 24; // empirical block size
 
     if (argc == 4) // override defaults
     {
