@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cassert>
 #include <cstdint>
+#include <stdexcept>
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
@@ -33,7 +34,9 @@ public:
     // sum values a[0..r] (0-based)
     uint32_t sum_to(size_t r) const
     {
-        assert(r+1 < t.size());
+        if (r >= len)
+            throw std::out_of_range("sum_to out of range");
+
         uint32_t s = 0;
         for (++r; r > 0; r -= r & -r)
             s += t[r];
@@ -44,7 +47,9 @@ public:
     // 0-based input
     void try_decrease(size_t i)
     {
-        assert(i < t.size());
+        if (i >= len) 
+            throw std::out_of_range("try_decrease out of range");
+
         if (ind[i])
         {
             ind[i] = 0;

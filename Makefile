@@ -5,7 +5,7 @@ CXXFLAGS = -Wall -Wextra -fopenmp
 release: CXXFLAGS += -O3
 release: primecount
 
-.PHONY: primecount
+.PHONY: primecount tests
 
 debug: CXXFLAGS += -g -D_GLIBCXX_DEBUG -DDEBUG -fsanitize=signed-integer-overflow 
 debug: primecount tests
