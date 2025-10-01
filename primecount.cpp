@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cassert>
 #include <cstdint>
-#include <format>
+#include <sstream>
 
 using namespace std;
 
@@ -528,8 +528,10 @@ public:
             size_t zk = zks[k];
 
             // Message may appear broken in multithreading
-            cout << "Start block " << k << " " 
-                << "[" << zk1 << "," << zk << ")\n";
+            ostringstream os;
+            os << "Start block " << k << " " 
+                << "[" << zk1 << "," << zk << ")" << endl;
+            cout << os.str();
 
             // construct new phi_block with p1, ..., pc already sieved out
             // using phi_yc precomputed (Appendix I)
@@ -577,6 +579,8 @@ public:
                     P2 += P2_iter(phi_block, vs[k], P2_defer[k][b]); 
                 }
             }
+
+            cout << "End block " << k << endl;
         }
 
         // sum up all deferred phi(y,b) bases sequentially
