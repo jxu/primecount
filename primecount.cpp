@@ -171,7 +171,7 @@ public:
     vector<int64_t> PRIME_COUNT; // pi(x) over [1,acbrtx]
     vector<int64_t> PHI_C;       // phi(x,c) over [1,Q]
     vector<bool>    F_C;         // f(x,c) = [pmin(x) > p_c]
-    vector<size_t>  zks;
+    vector<size_t>  zks;         // z_k endpoints for interval [1,z]
 
     Primecount(int64_t x, int64_t alpha, size_t bsize) :
         ALPHA(alpha),
@@ -226,10 +226,22 @@ public:
         pre_phi_c(C);
 
 
-        // create block endpoints
-        // Dynamic block size of powers of 2 didn't make it faster (#5)
-        // but I'm leaving in being able to specify zk endpoints
-        for (size_t i = 1; i <= Z + BSIZE; i += BSIZE)
+        // create block endpoints for variable size
+        const int BLOCK_BITS_MIN = 16;
+        const int BLOCK_BITS_MAX = 24;
+
+        // overwrite bsize
+        BSIZE = 1 << BLOCK_BITS_MAX;
+
+        zks = {1};
+
+        for (int64_t i = BLOCK_BITS_MIN; i < BLOCK_BITS_MAX; ++i)
+        {
+            zks.push_back((1 << i) + 1);
+        }
+
+
+        for (size_t i = 1 + BSIZE; i <= Z + BSIZE; i += BSIZE)
         {
             zks.push_back(i);
         }
