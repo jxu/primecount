@@ -253,20 +253,22 @@ public:
         for (; d > b + 1; --d)
         {
             int64_t pd = PRIMES[d];
-            // y is increasing as d is decreasing
-            int64_t y = X / (pb1 * pd);
 
-            // make sure y is in [zk1,zk)
-            if (y < zk1) 
+            // avoiding integer division actually does help
+            // TODO: check overflow?
+            if (X < pb1 * pd * zk1) // y < zk1
                 continue;
-            if (y >= zk)
+            if (X >= pb1 * pd * zk) // y > zk
                 break;
 
             // trivial leaves, should be skipped since already counted
-            if (X / (pb1 * pb1) < pd)
+            if (X < pd * pb1 * pb1) // X / pb1^2 < pd
                 continue;
-            // hard leaves
-            else if (y >= IACBRTX)
+
+            int64_t y = X / (pb1 * pd);
+        
+             // hard leaves
+            if (y >= IACBRTX)
             {
                 S2b += phi_block.sum_to(y);
                 phi_defer++;
