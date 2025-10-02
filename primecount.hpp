@@ -258,16 +258,13 @@ public:
 
             // make sure y is in [zk1,zk)
             if (y < zk1) 
-            {
                 continue;
-            }
             if (y >= zk)
                 break;
 
             // trivial leaves, should be skipped since already counted
-            if (std::max(X / (pb1 * pb1), pb1) < pd)
-            {
-            }
+            if (X / (pb1 * pb1) < pd)
+                continue;
             // hard leaves
             else if (y >= IACBRTX)
             {
