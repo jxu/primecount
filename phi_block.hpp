@@ -43,7 +43,7 @@ public:
         psize(bsize / 2),
         phi_sum(ind)
     {
-        assert(ind.size() == psize);
+        assert(zk1 % 2 == 1);
         assert(bsize % 2 == 0);
     }
 

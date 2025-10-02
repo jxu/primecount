@@ -1,4 +1,5 @@
 #pragma once
+#include <stdexcept>
 #include <vector>
 #include <iostream>
 #include <cmath>
@@ -32,17 +33,19 @@ public:
     typedef std::vector<bool> vecbool;
 
     // tuning parameters
-    int64_t ALPHA;     // tuning parameter (integer here)
+    const int64_t ALPHA;     // tuning parameter (integer here)
     int64_t C = 8;     // precompute phi_c parameter
 
     // global constants
-    int64_t X;         // Main value to compute pi(X) for
+    const int64_t X;   // Main value to compute pi(X) for
     int64_t Q;         // phi_c table size, shouldn't be too large
     int64_t Z;         // X^(2/3) / alpha (approx)
     int64_t ISQRTX;    // floor(sqrt(X))
     int64_t IACBRTX;   // floor(alpha cbrt(X))
     int64_t a;         // pi(alpha cbrt(X))
     int64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
+    int64_t BLOCKMIN;  // minimum block size (in bits)
+    int64_t BLOCKMAX;  // maximum block size (in bits)
     int64_t K;         // max k for blocks
  
     // precomputed tables
@@ -53,25 +56,24 @@ public:
     vecbool     F_C;         // f(x,c) = [pmin(x) > p_c]
     vec64       zks;         // z_k endpoints for interval [1,z]
 
-    Primecount(int64_t x, int64_t alpha, size_t bsize) :
+    Primecount(int64_t x, int64_t alpha, int64_t blockmin, int64_t blockmax) :
         ALPHA(alpha),
         X(x),
         // Q after sieve
         Z(cbrt(X) * cbrt(X) / ALPHA), // approx
         ISQRTX(sqrt(X)),
-        IACBRTX(ALPHA * cbrt(X))
-
+        IACBRTX(ALPHA * cbrt(X)),
+        BLOCKMIN(blockmin),
+        BLOCKMAX(blockmax)
     {
+        if (X < 10)
+            throw std::invalid_argument("Program not designed for tiny inputs");
+        
         // check alpha isn't set too large
-        assert(ALPHA <= pow(X, 1/6.));
+        if (ALPHA > pow(X, 1/6.))
+            throw std::invalid_argument("Alpha set too large");
 
         // hope floating point truncated values are exact floors
-
-        //assert(ISQRTX*ISQRTX <= X);
-        //assert((ISQRTX+1)*(ISQRTX+1) > X);
-        // may overflow
-        //assert(cube(IACBRTX)  <= cube(ALPHA) * X);
-        //assert(cube(IACBRTX+1) > cube(ALPHA) * X);
 
         std::cout << "Z = " << Z << std::endl;
         std::cout << "IACBRTX = " << IACBRTX << std::endl;
@@ -90,40 +92,26 @@ public:
         assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
         // good enough
-        astar = 1;
-        while(PRIMES[astar+1] * PRIMES[astar+1] <= IACBRTX)
-            ++astar;
-
+        astar = PRIME_COUNT[int64_t(sqrt(ALPHA) * pow(X, 1/6.))];
         std::cout << "a* = " << astar << std::endl;
+
         C = std::min(astar, C);
         std::cout << "C = " << C << std::endl;
 
-        assert(C >= 2);
-        assert((int64_t)C <= astar);
 
         // precompute tables
         pre_phi_c(C);
 
-
-        // create block endpoints for variable size
-        const int BLOCK_BITS_MIN = 16;
-        const int BLOCK_BITS_MAX = 24;
-
         // overwrite bsize
-        const size_t BSIZE = 1 << BLOCK_BITS_MAX;
+        const size_t BSIZE = 1 << BLOCKMAX;
 
         zks = {1};
 
-        for (int64_t i = BLOCK_BITS_MIN; i < BLOCK_BITS_MAX; ++i)
-        {
+        for (int64_t i = BLOCKMIN; i < BLOCKMAX; ++i)
             zks.push_back((1 << i) + 1);
-        }
-
 
         for (size_t i = 1 + BSIZE; i <= Z + BSIZE; i += BSIZE)
-        {
             zks.push_back(i);
-        }
         
         K = zks.size() - 1;
         std::cout << "K = " << K << std::endl;

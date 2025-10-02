@@ -3,9 +3,9 @@
 
 int main(int argc, char* argv[])
 {
-    if (!(argc == 2 || argc == 4))
+    if (!(argc == 2 || argc == 5))
     {
-        std::cerr << "Usage: ./primecount X [ALPHA BLOCKSIZE]\n";
+        std::cerr << "Usage: ./primecount X [ALPHA BLOCKMIN BLOCKMAX]\n";
         return 1;
     }
 
@@ -14,19 +14,23 @@ int main(int argc, char* argv[])
     // read float like 1e12 from command line (may not be exact for > 2^53)
     int64_t X = atof(argv[1]);
     int64_t alpha = std::max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
-    int64_t bsize = 1 << 24; // empirical block size
+    int64_t blockmin = 16;
+    int64_t blockmax = 24;
 
-    if (argc == 4) // override defaults
+    if (argc == 5) // override defaults
     {
         alpha = atoi(argv[2]);
-        bsize = atoi(argv[3]);
+        blockmin = atoi(argv[3]);
+        blockmax = atoi(argv[4]);
     }
 
     std::cout << "Computing for X = " << X << std::endl;
-    std::cout << "Block size = " << bsize << std::endl;
     std::cout << "Alpha = " << alpha << std::endl;
+    std::cout << "BLOCKMIN = " << blockmin << std::endl;
+    std::cout << "BLOCKMAX = " << blockmax << std::endl;
 
-    Primecount p(X, alpha, bsize);
+    // main class init
+    Primecount primecount(X, alpha, blockmin, blockmax);
 
-    std::cout << p.primecount() << std::endl;
+    std::cout << primecount.primecount() << std::endl;
 }
