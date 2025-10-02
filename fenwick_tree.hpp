@@ -7,38 +7,37 @@
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
+// fits exactly in a power of 2 space!
 class fenwick_tree
 {
 private:
-    size_t                  len; // 0-based len
     std::vector<bool>       ind; // underlying array
-    std::vector<uint32_t>   t;   // 1-based tree, indexes [1:len]
+    std::vector<uint32_t>   t;   // 0-indexed tree
 
 public:
     // init with input bool array
     fenwick_tree(const std::vector<bool>& ind) :
-        len(ind.size()),
         ind(ind),
-        t(len + 1, 0)
+        t(ind.size(), 0)
     {
         // linear time construction
-        for (size_t i = 1; i <= len; ++i)
+        for (size_t i = 0; i < t.size(); ++i)
         {
-            t[i] += ind[i-1];
-            size_t r = i + (i & -i);
-            if (r <= len) 
+            t[i] += ind[i];
+            size_t r = i | (i + 1);
+            if (r < t.size()) 
                 t[r] += t[i];
         }
     }
 
     // sum values a[0..r] (0-based)
-    uint32_t sum_to(size_t r) const
+    uint32_t sum_to(int32_t r) const
     {
-        if (r >= len)
+        if ((size_t)r >= t.size())
             throw std::out_of_range("sum_to out of range");
 
         uint32_t s = 0;
-        for (++r; r > 0; r -= r & -r)
+        for (; r >= 0; r = (r & (r + 1)) - 1)
             s += t[r];
         return s;
     }
@@ -47,13 +46,13 @@ public:
     // 0-based input
     void try_decrease(size_t i)
     {
-        if (i >= len) 
+        if (i >= t.size()) 
             throw std::out_of_range("try_decrease out of range");
 
         if (ind[i])
         {
             ind[i] = 0;
-            for (++i; i <= len; i += i & -i)
+            for (; i < t.size(); i |= (i + 1))
                 --t[i];
         }
     }
