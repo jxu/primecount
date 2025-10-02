@@ -48,7 +48,7 @@ public:
     }
 
     // translate into actual index into tree
-    size_t tree_index(const int64_t y) const
+    inline size_t tree_index(const int64_t y) const
     {
         return (y - zk1)/2;
     }
@@ -63,15 +63,21 @@ public:
     }
 
     // sieve out multiples of p_b for this block (including p_b)
-    void sieve_out(size_t pb)
+    void sieve_out(int64_t pb)
     {
         assert(pb > 2); // 2 already sieved by default
 
-        int64_t jstart = pb * ceil_div(zk1, pb);
-        if (jstart % 2 == 0)
-            jstart += pb; // ensure odd
+        // sieve out pb
+        if (zk1 <= pb && pb < zk)
+            phi_sum.try_decrease(tree_index(pb));
 
-        for (int64_t j = jstart; j < zk; j += 2*pb)
+        // now only need to start at pb^2
+        // (doesn't really help)
+        int64_t j0 = std::max(pb*pb, pb * ceil_div(zk1, pb));
+        if (j0 % 2 == 0)
+            j0 += pb; // ensure odd
+
+        for (int64_t j = j0; j < zk; j += 2*pb)
         {
             phi_sum.try_decrease(tree_index(j));
         }
