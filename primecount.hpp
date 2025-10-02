@@ -212,6 +212,7 @@ public:
     {
         int64_t S1 = 0;
         int64_t pb1 = PRIMES[b+1];
+        int64_t defer = 0;
         // m decreasing, modified with fixed upper bound
         int64_t mb = std::min(IACBRTX, X / (phi_block.zk1 * pb1));
 
@@ -225,9 +226,10 @@ public:
             if (std::abs(MU_PMIN[mb]) > pb1)
             {
                 S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y);
-                phi_defer -= sgn(MU_PMIN[mb]); 
+                defer -= sgn(MU_PMIN[mb]); 
             }
         }
+        phi_defer = defer;
         return S1;
     }
 
@@ -241,6 +243,7 @@ public:
         int64_t pb1 = PRIMES[b+1];
         int64_t zk1 = phi_block.zk1;
         int64_t zk = phi_block.zk;
+        int64_t defer = 0;
 
         int64_t d = a; // fixed starting point
 
@@ -271,7 +274,7 @@ public:
             if (y >= IACBRTX)
             {
                 S2b += phi_block.sum_to(y);
-                phi_defer++;
+                defer++;
             }
 
             // easy leaves
@@ -282,7 +285,9 @@ public:
                 S2b += PRIME_COUNT[y] - b + 1;
             }
         }
-
+        
+        // minimize updating the references
+        phi_defer = defer;
         return S2b;
     }
 
@@ -295,6 +300,8 @@ public:
         int64_t& phi_defer)
     {
         int64_t P2 = 0;
+        int64_t defer = 0;
+        int64_t v_defer = 0;
 
         // maintain aux sieve, u = tracking pb starting at max, y = x / u
         // x/zk < u <= x/zk1
@@ -304,8 +311,6 @@ public:
 
         if (u < w) return 0;
         
-        //std::cout << "[w,u] " << w << " " << u << std::endl;
-
         if (u <= IACBRTX) // can terminate
             return 0;
 
@@ -340,11 +345,13 @@ public:
 
             if (y >= phi_block.zk) break;
 
-            ++v;
+            ++v_defer;
             P2 += phi_block.sum_to(y) + a - 1;
-            phi_defer += 1;
+            ++defer;
         }
 
+        v += v_defer;
+        phi_defer = defer;
         return P2;
     }
 
@@ -386,6 +393,8 @@ public:
 
         // block_sum[k][b] = sum of Bk contents after sieving pb
         // = phi(zk - 1, b) - phi(zk1 - 1, b)
+        // by indexing k first, consecutive k (for given b) should be far apart
+        // to avoid false sharing (in theory)
         std::vector<vec64> phi_save(K+2, vec64(a+1, 0));
         auto block_sum = phi_save;
 
