@@ -413,9 +413,9 @@ public:
 
             // Message may appear broken in multithreading
             std::ostringstream os;
-            os << "Start block " << k << " " 
-                << "[" << zk1 << "," << zk << ")" << std::endl;
-            std::cout << os.str();
+            os << "Start block " << k << " " << 
+                std::hex << "[0x" << zk1 << ",0x" << zk << ")" << std::dec;
+            std::cout << os.str() << std::endl;
 
             // construct new phi_block with p1, ..., pc already sieved out
             // using phi_yc precomputed (Appendix I)
