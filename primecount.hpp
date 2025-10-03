@@ -33,10 +33,10 @@ public:
     typedef std::vector<bool> vecbool;
 
     // tuning parameters
-    const int64_t ALPHA;     // tuning parameter (integer here)
-    int64_t C = 8;     // precompute phi_c parameter
+    const int64_t ALPHA;    // tuning parameter (integer here)
+    int64_t C = 8;          // precompute phi_c parameter
 
-    // global constants
+    // "global constants"
     const int64_t X;   // Main value to compute pi(X) for
     int64_t Q;         // phi_c table size, shouldn't be too large
     int64_t Z;         // X^(2/3) / alpha (approx)
@@ -183,7 +183,6 @@ public:
     // phi(y,c) can be found quickly from the table
     int64_t phi_yc(int64_t y)
     {
-        assert(y >= 0);
         return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
     }
 
@@ -258,7 +257,6 @@ public:
             int64_t pd = PRIMES[d];
 
             // avoiding integer division actually does help
-            // TODO: check overflow?
             if (X < pb1 * pd * zk1) // y < zk1
                 continue;
             if (X >= pb1 * pd * zk) // y > zk
@@ -268,6 +266,7 @@ public:
             if (X < pd * pb1 * pb1) // X / pb1^2 < pd
                 continue;
 
+            // can't avoid the division any longer
             int64_t y = X / (pb1 * pd);
         
              // hard leaves
@@ -389,19 +388,17 @@ public:
             S2[b] = a - d2[b];
         }
 
-
-
         // block_sum[k][b] = sum of Bk contents after sieving pb
         // = phi(zk - 1, b) - phi(zk1 - 1, b)
         // by indexing k first, consecutive k (for given b) should be far apart
         // to avoid false sharing (in theory)
-        std::vector<vec64> phi_save(K+2, vec64(a+1, 0));
-        auto block_sum = phi_save;
+        // this uses too much memory for X = 1e19 (see #11)
+        std::vector<vec64> block_sum(K+1, vec64(a+1, 0));
 
         // deferred counts of phi_save from phi(y,b) calls
-        auto S1_defer = phi_save; 
-        auto S2_defer = phi_save;
-        auto P2_defer = phi_save;
+        std::vector<vec64> S1_defer(K+1, vec64(astar+1, 0)); 
+        auto S2_defer = block_sum;
+        vec64 P2_defer(K+1, 0);
  
         // Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
         // OpenMP parallelized here! 
@@ -463,7 +460,7 @@ public:
                 else if (b == a)
                 {
                     #pragma omp atomic
-                    P2 += P2_iter(phi_block, vs[k], P2_defer[k][b]); 
+                    P2 += P2_iter(phi_block, vs[k], P2_defer[k]); 
                 }
             }
 
@@ -478,12 +475,16 @@ public:
         {
             for (int64_t b = C; b <= a; ++b)
             {
-                // accumulate phi(zk-1,b)
-                // phi_save(k,b) = full phi(zk-1,b) from Bk and all previous
-                phi_save[k][b] = phi_save[k-1][b] + block_sum[k][b];
-                S1    += phi_save[k-1][b] * S1_defer[k][b];
-                S2[b] += phi_save[k-1][b] * S2_defer[k][b];
-                P2    += phi_save[k-1][b] * P2_defer[k][b];
+                // accumulate full phi(zk-1,b) from Bk and all previous
+                // reuse block_sum table to save memory
+                block_sum[k][b] += block_sum[k-1][b];
+
+                if (b < astar)
+                    S1    += block_sum[k-1][b] * S1_defer[k][b];
+                else if (b < a-1)
+                    S2[b] += block_sum[k-1][b] * S2_defer[k][b];
+                else if (b == a)
+                    P2    += block_sum[k-1][b] * P2_defer[k];
             }
             v += vs[k];
         }
