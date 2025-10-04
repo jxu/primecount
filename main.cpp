@@ -17,11 +17,11 @@ int main(int argc, char* argv[])
     if (Xf > (1ll << 53))
         std::cout << "WARNING: atof may not be exact, " <<
             "and you may need to change parameters for memory\n";
-    if (Xf > 1e18)
+    if (Xf > 1e19)
         throw std::out_of_range("X too big!");
 
     // convert double to int
-    int64_t X = Xf;
+    uint64_t X = Xf;
     int64_t alpha = std::max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
     int64_t blockmin = 16;
     int64_t blockmax = 24;
