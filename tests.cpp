@@ -22,14 +22,14 @@ void test_fenwick_tree()
     v1[1] = 0;
     ft.try_decrease(1);
     check_ft_equal(ft, v1);
-   
+
     v1[1] = 0;
     ft.try_decrease(1); // should not change
-    check_ft_equal(ft, v1); 
+    check_ft_equal(ft, v1);
 
     v1[4] = 0;
     ft.try_decrease(4);
-    check_ft_equal(ft, v1); 
+    check_ft_equal(ft, v1);
 
 
     std::cout << "Fenwick tree tests passed" << std::endl;
@@ -59,7 +59,7 @@ void test_phi_block()
     };
 
     // sieved out by 3s, so remaining are 1, 5, 7, 11, ... = 1,5 mod 6
-    std::vector<int> phi12 = 
+    std::vector<int> phi12 =
     {
         1,1,1,1,2,2,3,3,3,3,4,4,5,5,5,5,6,6,7,7,
         7,7,8,8,9,9,9,9,10,10,11,11,11,11,12,12,13,13,13,13,

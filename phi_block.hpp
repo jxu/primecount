@@ -15,10 +15,10 @@ inline int64_t ceil_div(int64_t x, int64_t y)
 // Represents Bk = [zk1, zk) that partition [1, ceil(z)]
 // The interval size should be O(iacbrtx) in theory
 //
-// In the whole computation, Bk processed sequentially for k = 1 to K 
+// In the whole computation, Bk processed sequentially for k = 1 to K
 // (potentially parallelizable by tracking phi(zk1-1,b) base values used)
 // Within each Bk:
-// For b from 1 to a: 
+// For b from 1 to a:
 //   Sieve out pb
 //   Update S1b and S2b
 
@@ -32,7 +32,7 @@ public:
     int64_t          zk;        // z_k, block upper bound (exclusive)
     size_t           bsize;     // logical block size
     size_t           psize;     // physical block size
- 
+
     fenwick_tree     phi_sum;   // data structure for efficient partial sums
 
     // construct new block without k or b explicitly

@@ -49,7 +49,7 @@ public:
     int64_t BLOCKMAX;  // maximum block size (in bits)
     int64_t K;         // max k for blocks
     int64_t KL = 64;   // how many k to parallelize at once
- 
+
     // precomputed tables
     vec64       MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
     vec64       PRIMES;      // primes <= acbrtx
@@ -71,7 +71,7 @@ public:
     {
         if (X < 10)
             throw std::invalid_argument("Program not designed for tiny inputs");
-        
+
         // check alpha isn't set too large
         if (ALPHA > pow(X, 1/6.))
             throw std::invalid_argument("Alpha set too large");
@@ -108,7 +108,7 @@ public:
 
         for (size_t i = 1 + BSIZE; i <= Z + BSIZE; i += BSIZE)
             zks.push_back(i);
-        
+
         K = zks.size() - 1;
         std::cout << "K = " << K << std::endl;
     }
@@ -219,7 +219,7 @@ public:
             if (std::abs(MU_PMIN[mb]) > pb1)
             {
                 S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y);
-                defer -= sgn(MU_PMIN[mb]); 
+                defer -= sgn(MU_PMIN[mb]);
             }
         }
         phi_defer = defer;
@@ -245,14 +245,14 @@ public:
         d = std::min(d, (int64_t)pi_bound(X / (pb1 * zk1)));
         // non-trivial leaves should satisfy pd <= max(x/pb1^2, pb1)
         d = std::min(d, (int64_t)pi_bound(X / (pb1 * pb1)));
-       
+
         for (; d > b + 1; --d)
         {
             uint64_t pd = PRIMES[d];
             uint64_t y = X / (pb1 * pd);
-            
+
             // it is possible to avoid integer division until hard leaves,
-            // but the comparisons need __int128 for overflow on X=1e19 
+            // but the comparisons need __int128 for overflow on X=1e19
             if (y < zk1)
                 continue;
             if (y >= zk)
@@ -262,7 +262,7 @@ public:
             if (X / (pb1 * pb1) < pd) // X / pb1^2 < pd
                 continue;
 
-             // hard leaves
+            // hard leaves
             if (y >= uint64_t(IACBRTX))
             {
                 S2b += phi_block.sum_to(y);
@@ -277,7 +277,7 @@ public:
                 S2b += PRIME_COUNT[y] - b + 1;
             }
         }
-        
+
         // minimize updating the references
         phi_defer = defer;
         return S2b;
@@ -302,7 +302,7 @@ public:
         int64_t w = std::max((uint64_t)IACBRTX, X / phi_block.zk) + 1;
 
         if (u < w) return 0;
-        
+
         if (u <= IACBRTX) // can terminate
             return 0;
 
@@ -317,7 +317,7 @@ public:
             int64_t p = PRIMES[i];
             if (p*p > u)
                 break;
-            
+
             // only need to start marking multiples at p^2
             int64_t j0 = std::max(p*p, p * ceil_div(w, p));
             for (int64_t j = j0; j <= u; j += p)
@@ -361,12 +361,12 @@ public:
         // S2
         vec64 S2(a+1);
         int64_t S2s = 0;
-        
+
         // Phi2
         int64_t P2 = a * (a-1) / 2; // starting sum
         vec64 vs(K + 1, 0);
         int64_t v = a;
-        
+
         // Init S2 vars
         for (int64_t b = astar; b < a - 1; ++b)
         {
@@ -394,17 +394,17 @@ public:
         vec64 phi_save_prev(a+1, 0);
 
         // deferred counts of phi_save from phi(y,b) calls
-        std::vector<vec64> S1_defer(KL, vec64(astar+1, 0)); 
+        std::vector<vec64> S1_defer(KL, vec64(astar+1, 0));
         auto S2_defer = block_sum;
         vec64 P2_defer(KL, 0);
- 
+
         // Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
         // k batch [k0, k0 + KL)
         // indexing into KL-size table uses k - k0
         for (int64_t k0 = 1; k0 <= K; k0 += KL)
         {
             std::cout << "Start new K batch at " << k0 << std::endl;
-            
+
             int64_t kmax = std::min(k0 + KL, K + 1); // exclusive
 
             // Dynamic as the block computations are heavily imbalanced
@@ -417,7 +417,7 @@ public:
 
                 // Message may appear broken in multithreading
                 std::cout << std::format(
-                    "Start block {} [{:#x},{:#x})\n", k, zk1, zk);
+                              "Start block {} [{:#x},{:#x})\n", k, zk1, zk);
 
                 // construct new phi_block with p1, ..., pc already sieved out
                 // using phi_yc precomputed (Appendix I)
@@ -460,7 +460,7 @@ public:
                     else if (b == a)
                     {
                         #pragma omp atomic
-                        P2 += P2_iter(phi_block, vs[k], P2_defer[k-k0]); 
+                        P2 += P2_iter(phi_block, vs[k], P2_defer[k-k0]);
                     }
                 }
 
@@ -475,11 +475,11 @@ public:
                 {
                     // accumulate full phi(zk-1,b) from Bk and all previous
                     int64_t phi_prev = (k == k0)
-                        ? phi_save_prev[b]
-                        : phi_save[k-k0-1][b];
+                                       ? phi_save_prev[b]
+                                       : phi_save[k-k0-1][b];
 
                     phi_save[k-k0][b] = phi_prev + block_sum[k-k0][b];
-                     
+
                     if (b < astar)
                         S1    += phi_prev * S1_defer[k-k0][b];
                     else if (b < a-1)

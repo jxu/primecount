@@ -7,7 +7,7 @@
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
-// fits exactly in a power of 2 space!
+// t fits exactly in a power of 2 space!
 class fenwick_tree
 {
 private:
@@ -25,7 +25,7 @@ public:
         {
             t[i] += ind[i];
             size_t r = i | (i + 1);
-            if (r < t.size()) 
+            if (r < t.size())
                 t[r] += t[i];
         }
     }
@@ -46,7 +46,7 @@ public:
     // 0-based input
     void try_decrease(size_t i)
     {
-        if (i >= t.size()) 
+        if (i >= t.size())
             throw std::out_of_range("try_decrease out of range");
 
         if (ind[i])
