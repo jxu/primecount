@@ -51,17 +51,18 @@ public:
     int64_t KL = 64;   // how many k to parallelize at once
  
     // precomputed tables
-    std::vector<int64_t>       MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
+    vec64       MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
     vec64       PRIMES;      // primes <= acbrtx
     vec64       PRIME_COUNT; // pi(x) over [1,acbrtx]
     vec64       PHI_C;       // phi(x,c) over [1,Q]
     vecbool     F_C;         // f(x,c) = [pmin(x) > p_c]
-    vecu64       zks;         // z_k endpoints for interval [1,z]
+    vecu64      zks;         // z_k endpoints for interval [1,z]
 
     Primecount(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockmax) :
         ALPHA(alpha),
         X(x),
         // Q after sieve
+        // hope floating point truncated values are exact floors
         Z(cbrt(X) * cbrt(X) / ALPHA), // approx
         ISQRTX(sqrt(X)),
         IACBRTX(ALPHA * cbrt(X)),
@@ -75,39 +76,31 @@ public:
         if (ALPHA > pow(X, 1/6.))
             throw std::invalid_argument("Alpha set too large");
 
-        // hope floating point truncated values are exact floors
-
         std::cout << "Z = " << Z << std::endl;
         std::cout << "IACBRTX = " << IACBRTX << std::endl;
         std::cout << "ISQRTX = " << ISQRTX << std::endl;
 
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
-
         // Since p_{a+1} may be needed in S2, leave margin
         size_t SIEVE_SIZE = IACBRTX + 200;
         sieve_mu_prime(SIEVE_SIZE);
-
 
         a = PRIME_COUNT[IACBRTX];
         std::cout << "a = " << a << std::endl;
 
         assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
-        // good enough
         astar = PRIME_COUNT[int64_t(sqrt(ALPHA) * pow(X, 1/6.))];
         std::cout << "a* = " << astar << std::endl;
 
         C = std::min(astar, C);
         std::cout << "C = " << C << std::endl;
 
-
-        // precompute tables
+        // precompute PHI_C tables
         pre_phi_c(C);
 
-        // overwrite bsize
-        const size_t BSIZE = 1 << BLOCKMAX;
-
         // create z_k endpoints
+        const size_t BSIZE = 1 << BLOCKMAX;
         zks = {1};
 
         for (int64_t i = BLOCKMIN; i < BLOCKMAX; ++i)
@@ -128,7 +121,7 @@ public:
         PRIMES.push_back(1);                // p0 = 1 by convention
         PRIME_COUNT.resize(SIEVE_SIZE+1);   // init values don't matter here
 
-        int64_t prime_counter = 0;
+        int64_t pc = 0; // prime counter
 
         // sieve of Eratosthenes, modification to keep track of mu sign and pmin
         for (size_t j = 2; j <= SIEVE_SIZE; ++j)
@@ -148,14 +141,14 @@ public:
             if (MU_PMIN[j] == -(int64_t)j)   // prime
             {
                 PRIMES.push_back(j);
-                ++prime_counter;
+                ++pc;
 
                 // mark multiples of p^2 as 0 for mu
                 for (size_t i = j*j; i <= SIEVE_SIZE; i += j*j)
                     MU_PMIN[i] = 0;
             }
 
-            PRIME_COUNT[j] = prime_counter;
+            PRIME_COUNT[j] = pc;
         }
     }
 
@@ -256,7 +249,6 @@ public:
         for (; d > b + 1; --d)
         {
             uint64_t pd = PRIMES[d];
-
             uint64_t y = X / (pb1 * pd);
             
             // it is possible to avoid integer division until hard leaves,
@@ -409,7 +401,6 @@ public:
         // Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
         // k batch [k0, k0 + KL)
         // indexing into KL-size table uses k - k0
-        // TODO: f
         for (int64_t k0 = 1; k0 <= K; k0 += KL)
         {
             std::cout << "Start new K batch at " << k0 << std::endl;
@@ -417,6 +408,7 @@ public:
             int64_t kmax = std::min(k0 + KL, K + 1); // exclusive
 
             // Dynamic as the block computations are heavily imbalanced
+            // for low k
             #pragma omp parallel for schedule(dynamic)
             for (int64_t k = k0; k < kmax; ++k)
             {

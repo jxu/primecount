@@ -21,9 +21,7 @@ Compiled with g++ -O3 and run on my laptop (Ubuntu 24.04, GCC 13.3.0, i7-7700HQ 
 | 10^16 | 1m36s           | 31s              | 279238341033925    |
 | 10^17 | 6m52s           | 2m17s            | 2623557157654233   |
 | 10^18 | 29m             | 9m48s            | 24739954287740860  |
-| 10^19 | 186m*           | 45m              | 234057667276344607 |
-
-*Computed on a non-parallel older version which fit into memory.
+| 10^19 | 143m            | 45m              | 234057667276344607 |
 
 *Still a better use of electricity than crypto*
 
