@@ -8,6 +8,7 @@ void check_ft_equal(const fenwick_tree& ft, const std::vector<bool>& v)
     for (size_t i = 0; i < v.size(); ++i)
     {
         s += v[i];
+        std::cout << s << " " << ft.sum_to(i) << std::endl;
         assert((int)ft.sum_to(i) == s);
     }
 }
