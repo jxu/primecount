@@ -1,22 +1,22 @@
 #include "primecount.hpp"
 #include <cstdint>
+#include <random>
 
 // checks ft.sum_to(i) == sum v[0:i]
 void check_ft_equal(const fenwick_tree& ft, const std::vector<bool>& v)
 {
-    int s = 0;
+    uint32_t s = 0;
     for (size_t i = 0; i < v.size(); ++i)
     {
         s += v[i];
-        std::cout << s << " " << ft.sum_to(i) << std::endl;
-        assert((int)ft.sum_to(i) == s);
+        assert(ft.sum_to(i) == s);
     }
 }
 
 void test_fenwick_tree()
 {
-    // example: fenwick tree over array [1,1,1,1,1]
-    std::vector<bool> v1(5, 1);
+    // example: fenwick tree over array
+    std::vector<bool> v1 = {1, 1, 0, 1, 1};
     fenwick_tree ft(v1);
     check_ft_equal(ft, v1);
 
@@ -32,6 +32,35 @@ void test_fenwick_tree()
     ft.try_decrease(4);
     check_ft_equal(ft, v1);
 
+    // randomized testing
+    std::mt19937 rng(1229);
+    const int n = 10000;
+    std::uniform_int_distribution<> unif1(0, 1);
+    std::uniform_int_distribution<> unifn(0, n-1);
+
+    for (int t = 0; t < 10; ++t) // trials
+    {
+        // randomly fill bool vector
+        std::vector<bool> ind(n);
+        for (int j = 0; j < n; ++j)
+            ind[j] = unif1(rng);
+
+        // init tree from vector
+        fenwick_tree ft(ind);
+
+        check_ft_equal(ft, ind);
+
+        // pick random indices to decrease and check FT
+        for (int j = 0; j < 100; ++j)
+        {
+            int x = unifn(rng);
+            ind[x] = 0;
+            ft.try_decrease(x);
+            check_ft_equal(ft, ind);
+        }
+
+         
+    }
 
     std::cout << "Fenwick tree tests passed" << std::endl;
 }
