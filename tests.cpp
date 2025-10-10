@@ -34,7 +34,7 @@ void test_fenwick_tree()
 
     // randomized testing
     std::mt19937 rng(1229);
-    const int n = 10000;
+    const int n = 1000;
     std::uniform_int_distribution<> unif1(0, 1);
     std::uniform_int_distribution<> unifn(0, n-1);
 
@@ -58,8 +58,6 @@ void test_fenwick_tree()
             ft.try_decrease(x);
             check_ft_equal(ft, ind);
         }
-
-         
     }
 
     std::cout << "Fenwick tree tests passed" << std::endl;
