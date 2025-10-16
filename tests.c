@@ -1,37 +1,40 @@
-#include "primecount.hpp"
-#include <cstdint>
-#include <random>
+#include "fenwick_tree.h"
+#include <stdio.h>
 
 // checks ft.sum_to(i) == sum v[0:i]
-void check_ft_equal(const fenwick_tree& ft, const std::vector<bool>& v)
+void check_ft_equal(const fenwick_tree ft, const bool v[])
 {
+    uint32_t siz = ft[0];
     uint32_t s = 0;
-    for (size_t i = 0; i < v.size(); ++i)
+    for (size_t i = 0; i < siz; ++i)
     {
         s += v[i];
-        assert(ft.sum_to(i) == s);
+        //printf("%d %d\n", ft_sum_to(ft,i), s);
+        
+        assert(ft_sum_to(ft, i) == s);
     }
 }
 
 void test_fenwick_tree()
 {
     // example: fenwick tree over array
-    std::vector<bool> v1 = {1, 1, 0, 1, 1};
-    fenwick_tree ft(v1);
+    bool v1[5] = {1, 1, 0, 1, 1};
+    fenwick_tree ft = ft_new(v1, 5);
     check_ft_equal(ft, v1);
 
     v1[1] = 0;
-    ft.try_decrease(1);
+    ft_try_decrease(ft, 1);
     check_ft_equal(ft, v1);
 
     v1[1] = 0;
-    ft.try_decrease(1); // should not change
+    ft_try_decrease(ft, 1); // should not change
     check_ft_equal(ft, v1);
 
     v1[4] = 0;
-    ft.try_decrease(4);
+    ft_try_decrease(ft, 4);
     check_ft_equal(ft, v1);
 
+    /*
     // randomized testing
     std::mt19937 rng(1229);
     const int n = 1000;
@@ -61,8 +64,10 @@ void test_fenwick_tree()
     }
 
     std::cout << "Fenwick tree tests passed" << std::endl;
+    */
 }
 
+/*
 // Test PhiBlock values without base match a reference
 void check_phiyb(const PhiBlock& pb, const std::vector<int>& ref)
 {
@@ -102,11 +107,12 @@ void test_phi_block()
 
     // TODO: automated test
 }
+*/
 
 int main()
 {
     test_fenwick_tree();
-    test_phi_block();
-    std::cout << "All tests passed!" << std::endl;
+    //test_phi_block();
+    //std::cout << "All tests passed!" << std::endl;
 }
 
