@@ -1,17 +1,16 @@
-CXX = g++
-CXXFLAGS = -Wall -Wextra -std=c++20 -fopenmp
-
-# Target-specific variable values
-release: CXXFLAGS += -O3
-release: primecount
+CC = gcc
+CCFLAGS = -Wall -Wextra -lm -fopenmp
 
 .PHONY: primecount tests
+# Target-specific variable values
+release: CCFLAGS += -O3
+release: primecount
 
-debug: CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG -DDEBUG -fsanitize=signed-integer-overflow
-debug: primecount tests
+debug: CCFLAGS += -Og -g
+debug: tests
 
-primecount: main.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+primecount: main.c
+	$(CC) $(CCFLAGS) -o $@ $<
 
-tests: tests.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+tests: tests.c
+	$(CC) $(CCFLAGS) -o $@ $<
