@@ -1,4 +1,4 @@
-#include "fenwick_tree.h"
+#include "phi_block.h"
 #include <stdio.h>
 
 // checks ft.sum_to(i) == sum v[0:i]
@@ -67,24 +67,28 @@ void test_fenwick_tree()
     */
 }
 
-/*
 // Test PhiBlock values without base match a reference
-void check_phiyb(const PhiBlock& pb, const std::vector<int>& ref)
+void check_phiyb(phi_block* pb, const int ref[])
 {
-    for (int64_t i = pb.zk1; i < pb.zk; ++i)
+    for (int64_t i = pb->zk1; i < pb->zk; ++i)
     {
-        assert(pb.sum_to(i) == ref[i-pb.zk1]);
+        assert(sum_to(pb, i) == ref[i - pb->zk1]);
     }
 }
 
 
 void test_phi_block()
 {
-    std::vector<bool> ind(25, 1);
-    PhiBlock pb(ind, 1, 51);
+    const int B = 25;
+    bool ind[B];
+
+    for (int i = 0; i < B; ++i)
+        ind[i] = 1;
+
+    phi_block* pb = phi_block_new(ind, 1, 51);
     // by design, phi block already has b = 1, p_b = 2 sieved out
     // sieved out evens, so remaining are 1,3,5,7,... = 1 mod 2
-    const std::vector<int> phi11 =
+    const int phi11[50] =
     {
         1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,
         11,11,12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,19,20,20,
@@ -92,7 +96,7 @@ void test_phi_block()
     };
 
     // sieved out by 3s, so remaining are 1, 5, 7, 11, ... = 1,5 mod 6
-    std::vector<int> phi12 =
+    const int phi12[50] =
     {
         1,1,1,1,2,2,3,3,3,3,4,4,5,5,5,5,6,6,7,7,
         7,7,8,8,9,9,9,9,10,10,11,11,11,11,12,12,13,13,13,13,
@@ -102,17 +106,16 @@ void test_phi_block()
     check_phiyb(pb, phi11);
 
     // sieve out b = 2, p_b = 3
-    pb.sieve_out(3);
+    sieve_out(pb, 3);
     check_phiyb(pb, phi12);
 
     // TODO: automated test
 }
-*/
 
 int main()
 {
     test_fenwick_tree();
-    //test_phi_block();
-    //std::cout << "All tests passed!" << std::endl;
+    test_phi_block();
+    printf("All tests passed!\n");
 }
 

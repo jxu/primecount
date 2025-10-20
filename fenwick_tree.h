@@ -1,9 +1,10 @@
+#pragma once
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
 
-typedef uint32_t* fenwick_tree; 
+typedef uint32_t* fenwick_tree; // light abstraction
 
 const uint32_t MSB_MASK = 1 << 31;
 
@@ -17,7 +18,7 @@ fenwick_tree ft_new(bool* ind, uint32_t len)
 {
     assert(len + 1 < MSB_MASK);
     // init array with zeros
-    uint32_t* ft = calloc(len + 1, sizeof *ft);
+    fenwick_tree ft = calloc(len + 1, sizeof *ft);
 
     ft[0] = len;
 
@@ -64,3 +65,7 @@ void ft_try_decrease(fenwick_tree ft, uint32_t i)
     }
 }
 
+void ft_delete(fenwick_tree ft)
+{
+    free(ft);
+}
