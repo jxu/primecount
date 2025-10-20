@@ -2,12 +2,12 @@ CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++20 -fopenmp
 
 # Target-specific variable values
-release: CXXFLAGS += -O3
+release: CXXFLAGS += -O3 -DNDEBUG
 release: primecount
 
 .PHONY: primecount tests
 
-debug: CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG -DDEBUG -fsanitize=signed-integer-overflow
+debug: CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG -fsanitize=signed-integer-overflow
 debug: primecount tests
 
 primecount: main.cpp
