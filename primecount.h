@@ -1,13 +1,6 @@
 #pragma once
-#include <stdexcept>
-#include <vector>
-#include <iostream>
-#include <cmath>
-#include <cassert>
-#include <cstdint>
-#include <format>
-
-#include "phi_block.hpp"
+#include <math.h>
+#include "phi_block.h"
 
 
 // signum: returns -1, 0, or 1
@@ -22,23 +15,18 @@ inline int sgn(int64_t x)
 inline double pi_bound(uint64_t x)
 {
     if (x <= 1) return 1;
-    return 1.25506 * double(x) / log(x);
+    return 1.25506 * (double)x / log(x);
 }
 
 
-class Primecount
+typedef struct Primecount
 {
-public:
-    typedef std::vector<int64_t> vec64;
-    typedef std::vector<uint64_t> vecu64;
-    typedef std::vector<bool> vecbool;
-
     // tuning parameters
-    const int64_t ALPHA;    // tuning parameter (integer here)
-    int64_t C = 8;          // precompute phi_c parameter
+    int64_t ALPHA;          // tuning parameter (integer here)
+    int64_t C;              // precompute phi_c parameter
 
     // "global constants"
-    const uint64_t X;   // Main value to compute pi(X) for
+    uint64_t X;        // Main value to compute pi(X) for
     int64_t Q;         // phi_c table size, shouldn't be too large
     int64_t Z;         // X^(2/3) / alpha (approx)
     int64_t ISQRTX;    // floor(sqrt(X))
@@ -48,70 +36,75 @@ public:
     int64_t BLOCKMIN;  // minimum block size (in bits)
     int64_t BLOCKMAX;  // maximum block size (in bits)
     int64_t K;         // max k for blocks
-    int64_t KL = 64;   // how many k to parallelize at once
+    int64_t KL;        // how many k to parallelize at once
 
     // precomputed tables
-    vec64       MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
-    vec64       PRIMES;      // primes <= acbrtx
-    vec64       PRIME_COUNT; // pi(x) over [1,acbrtx]
-    vec64       PHI_C;       // phi(x,c) over [1,Q]
-    vecbool     F_C;         // f(x,c) = [pmin(x) > p_c]
-    vecu64      zks;         // z_k endpoints for interval [1,z]
+    int64_t*    MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
+    int64_t*    PRIMES;      // primes <= acbrtx
+    int64_t*    PRIME_COUNT; // pi(x) over [1,acbrtx]
+    int64_t*    PHI_C;       // phi(x,c) over [1,Q]
+    bool*       F_C;         // f(x,c) = [pmin(x) > p_c]
+    int64_t*    zks;         // z_k endpoints for interval [1,z]
+} Primecount;
+// C = 8
+// KL = 64
 
-    Primecount(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockmax) :
-        ALPHA(alpha),
-        X(x),
-        // Q after sieve
-        // hope floating point truncated values are exact floors
-        Z(cbrt(X) * cbrt(X) / ALPHA), // approx
-        ISQRTX(sqrt(X)),
-        IACBRTX(ALPHA * cbrt(X)),
-        BLOCKMIN(blockmin),
-        BLOCKMAX(blockmax)
-    {
-        if (X < 10)
-            throw std::invalid_argument("Program not designed for tiny inputs");
+Primecount* primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockmax)
+{
+    Primecount* P = malloc(sizeof(P));
+    P->ALPHA = alpha;
+    P->X = x;
+    // Q after sieve
+    // hope floating point truncated values are exact floors
+    P->Z = (cbrt(x) * cbrt(x) / alpha); // approx
+    ISQRTX(sqrt(X)),
+    IACBRTX(ALPHA * cbrt(X)),
+    BLOCKMIN(blockmin),
+    BLOCKMAX(blockmax)
+{
+    if (X < 10)
+        throw std::invalid_argument("Program not designed for tiny inputs");
 
-        // check alpha isn't set too large
-        if (ALPHA > pow(X, 1/6.))
-            throw std::invalid_argument("Alpha set too large");
+    // check alpha isn't set too large
+    if (ALPHA > pow(X, 1/6.))
+        throw std::invalid_argument("Alpha set too large");
 
-        std::cout << "Z = " << Z << std::endl;
-        std::cout << "IACBRTX = " << IACBRTX << std::endl;
-        std::cout << "ISQRTX = " << ISQRTX << std::endl;
+    std::cout << "Z = " << Z << std::endl;
+    std::cout << "IACBRTX = " << IACBRTX << std::endl;
+    std::cout << "ISQRTX = " << ISQRTX << std::endl;
 
-        // precompute PRIMES, PRIME_COUNT, MU_PMIN
-        // Since p_{a+1} may be needed in S2, leave margin
-        size_t SIEVE_SIZE = IACBRTX + 200;
-        sieve_mu_prime(SIEVE_SIZE);
+    // precompute PRIMES, PRIME_COUNT, MU_PMIN
+    // Since p_{a+1} may be needed in S2, leave margin
+    size_t SIEVE_SIZE = IACBRTX + 200;
+    sieve_mu_prime(SIEVE_SIZE);
 
-        a = PRIME_COUNT[IACBRTX];
-        std::cout << "a = " << a << std::endl;
+    a = PRIME_COUNT[IACBRTX];
+    std::cout << "a = " << a << std::endl;
 
-        assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
+    assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
-        astar = PRIME_COUNT[int64_t(sqrt(ALPHA) * pow(X, 1/6.))];
-        std::cout << "a* = " << astar << std::endl;
+    astar = PRIME_COUNT[int64_t(sqrt(ALPHA) * pow(X, 1/6.))];
+    std::cout << "a* = " << astar << std::endl;
 
-        C = std::min(astar, C);
-        std::cout << "C = " << C << std::endl;
+    C = std::min(astar, C);
+    std::cout << "C = " << C << std::endl;
 
-        // precompute PHI_C tables
-        pre_phi_c(C);
+    // precompute PHI_C tables
+    pre_phi_c(C);
 
-        // create z_k endpoints
-        const size_t BSIZE = 1 << BLOCKMAX;
-        zks = {1};
+    // create z_k endpoints
+    const size_t BSIZE = 1 << BLOCKMAX;
+    zks = {1};
 
-        for (int64_t i = BLOCKMIN; i < BLOCKMAX; ++i)
-            zks.push_back((1 << i) + 1);
+    for (int64_t i = BLOCKMIN; i < BLOCKMAX; ++i)
+        zks.push_back((1 << i) + 1);
 
-        for (size_t i = 1 + BSIZE; i <= Z + BSIZE; i += BSIZE)
-            zks.push_back(i);
+    for (size_t i = 1 + BSIZE; i <= Z + BSIZE; i += BSIZE)
+        zks.push_back(i);
 
-        K = zks.size() - 1;
-        std::cout << "K = " << K << std::endl;
-    }
+    K = zks.size() - 1;
+    std::cout << "K = " << K << std::endl;
+}
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
     void sieve_mu_prime(size_t SIEVE_SIZE)
@@ -359,12 +352,12 @@ public:
         int64_t S1 = 0;
 
         // S2
-        vec64 S2(a+1);
+        int64_t* S2(a+1);
         int64_t S2s = 0;
 
         // Phi2
         int64_t P2 = a * (a-1) / 2; // starting sum
-        vec64 vs(K + 1, 0);
+        int64_t* vs(K + 1, 0);
         int64_t v = a;
 
         // Init S2 vars
@@ -389,14 +382,14 @@ public:
         // to avoid false sharing (in theory)
 
         // Only take KL-size batches at once to avoid excessive table space
-        std::vector<vec64> block_sum(KL, vec64(a+1, 0));
+        std::vector<int64_t*> block_sum(KL, int64_t*(a+1, 0));
         auto phi_save = block_sum;
-        vec64 phi_save_prev(a+1, 0);
+        int64_t* phi_save_prev(a+1, 0);
 
         // deferred counts of phi_save from phi(y,b) calls
-        std::vector<vec64> S1_defer(KL, vec64(astar+1, 0));
+        std::vector<int64_t*> S1_defer(KL, int64_t*(astar+1, 0));
         auto S2_defer = block_sum;
-        vec64 P2_defer(KL, 0);
+        int64_t* P2_defer(KL, 0);
 
         // Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
         // k batch [k0, k0 + KL)
