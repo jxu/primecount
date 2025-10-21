@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -std=c++20 -fopenmp
+CXXFLAGS = -Wall -Wextra -fopenmp
 
 # Target-specific variable values
 release: CXXFLAGS += -O3 -DNDEBUG

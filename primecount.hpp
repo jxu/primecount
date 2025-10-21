@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cassert>
 #include <cstdint>
-#include <format>
 
 #include "phi_block.hpp"
 
@@ -415,9 +414,13 @@ public:
                 int64_t zk1 = zks[k-1];
                 int64_t zk = zks[k];
 
-                // Message may appear broken in multithreading
-                std::cout << std::format(
-                              "Start block {} [{:#x},{:#x})\n", k, zk1, zk);
+                // not actually critical, but lock printing makes it nicer 
+                #pragma omp critical 
+                {
+                    std::cout << "Start block " << k 
+                        << std::hex << " [0x" << zk1 << ",0x" << zk << ")" 
+                        << std::dec << std::endl;
+                }
 
                 // construct new phi_block with p1, ..., pc already sieved out
                 // using phi_yc precomputed (Appendix I)
