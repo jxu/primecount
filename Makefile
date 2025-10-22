@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -Wall -Wextra -fopenmp
 
 # Target-specific variable values
-release: CXXFLAGS += -O3 -DNDEBUG
+release: CXXFLAGS += -O3 -g -DNDEBUG
 release: primecount
 
 .PHONY: primecount tests

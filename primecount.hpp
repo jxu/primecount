@@ -29,7 +29,6 @@ class Primecount
 {
 public:
     typedef std::vector<int64_t> vec64;
-    typedef std::vector<uint64_t> vecu64;
     typedef std::vector<bool> vecbool;
 
     // tuning parameters
@@ -55,7 +54,7 @@ public:
     vec64       PRIME_COUNT; // pi(x) over [1,acbrtx]
     vec64       PHI_C;       // phi(x,c) over [1,Q]
     vecbool     F_C;         // f(x,c) = [pmin(x) > p_c]
-    vecu64      zks;         // z_k endpoints for interval [1,z]
+    vec64       zks;         // z_k endpoints for interval [1,z]
 
     Primecount(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockmax) :
         ALPHA(alpha),
