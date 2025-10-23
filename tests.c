@@ -62,9 +62,9 @@ void test_fenwick_tree()
             check_ft_equal(ft, ind);
         }
     }
-
-    std::cout << "Fenwick tree tests passed" << std::endl;
     */
+
+    printf("Fenwick tree tests passed\n");
 }
 
 // Test PhiBlock values without base match a reference
