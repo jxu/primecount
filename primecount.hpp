@@ -175,6 +175,7 @@ public:
     }
 
     // phi(y,c) can be found quickly from the table
+    // y can be 10^19 so needs to be unsigned
     int64_t phi_yc(uint64_t y)
     {
         return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
@@ -205,14 +206,15 @@ public:
         int64_t pb1 = PRIMES[b+1];
         int64_t defer = 0;
         // m decreasing, modified with fixed upper bound
-        int64_t mb = std::min(uint64_t(IACBRTX), X / uint64_t(phi_block.zk1 * pb1));
+        int64_t mb = std::min(uint64_t(IACBRTX), 
+                              X / uint64_t(phi_block.zk1 * pb1));
 
         for (; mb * pb1 > IACBRTX; --mb)
         {
-            uint64_t y = X / (mb * pb1);
+            int64_t y = X / (mb * pb1);
 
-            assert(y >= uint64_t(phi_block.zk1));
-            if (y >= uint64_t(phi_block.zk)) break;
+            assert(y >= phi_block.zk1);
+            if (y >= phi_block.zk) break;
 
             if (std::abs(MU_PMIN[mb]) > pb1)
             {
@@ -231,23 +233,23 @@ public:
         int64_t& phi_defer)
     {
         int64_t S2b = 0;
-        uint64_t pb1 = PRIMES[b+1];
-        uint64_t zk1 = phi_block.zk1;
-        uint64_t zk = phi_block.zk;
+        int64_t pb1 = PRIMES[b+1];
+        int64_t zk1 = phi_block.zk1;
+        int64_t zk = phi_block.zk;
         int64_t defer = 0;
 
         int64_t d = a; // fixed starting point
 
         // attempt to optimize starting d bound
         // pd <= x / zk1
-        d = std::min(d, (int64_t)pi_bound(X / (pb1 * zk1)));
+        d = std::min(d, int64_t(pi_bound(X / (pb1 * zk1))));
         // non-trivial leaves should satisfy pd <= max(x/pb1^2, pb1)
-        d = std::min(d, (int64_t)pi_bound(X / (pb1 * pb1)));
+        d = std::min(d, int64_t(pi_bound(X / (pb1 * pb1))));
 
         for (; d > b + 1; --d)
         {
-            uint64_t pd = PRIMES[d];
-            uint64_t y = X / (pb1 * pd);
+            int64_t pd = PRIMES[d];
+            int64_t y = X / (pb1 * pd);
 
             // it is possible to avoid integer division until hard leaves,
             // but the comparisons need __int128 for overflow on X=1e19
@@ -257,11 +259,11 @@ public:
                 break;
 
             // trivial leaves, should be skipped since already counted
-            if (X / (pb1 * pb1) < pd) // X / pb1^2 < pd
+            if (X / (pb1 * pb1) < uint64_t(pd)) // X / pb1^2 < pd
                 continue;
 
             // hard leaves
-            if (y >= uint64_t(IACBRTX))
+            if (y >= IACBRTX)
             {
                 S2b += phi_block.sum_to(y);
                 defer++;
@@ -296,8 +298,8 @@ public:
         // maintain aux sieve, u = tracking pb starting at max, y = x / u
         // x/zk < u <= x/zk1
         // iacbrtx < u <= isqrtx
-        int64_t u = std::min((uint64_t)ISQRTX, X / phi_block.zk1);
-        int64_t w = std::max((uint64_t)IACBRTX, X / phi_block.zk) + 1;
+        int64_t u = std::min(uint64_t(ISQRTX), X / phi_block.zk1);
+        int64_t w = std::max(uint64_t(IACBRTX), X / phi_block.zk) + 1;
 
         if (u < w) return 0;
 
