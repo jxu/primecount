@@ -1,2 +1,4 @@
-primecount
-tests
+# ignore binaries
+*
+!*.*
+!*/

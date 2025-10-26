@@ -3,7 +3,6 @@
 #include <cassert>
 #include <cstdint>
 #include <stdexcept>
-#include <iostream>
 
 // ceil(x/y) for positive integers
 inline uint64_t ceil_div(uint64_t x, uint64_t y)
@@ -12,6 +11,8 @@ inline uint64_t ceil_div(uint64_t x, uint64_t y)
 }
 
 // Special bit sieve, optimized for range sums with popcount on 64-bit ints
+// Idea stolen from Kim Walisch's primecount
+// slower asymptotically because I didn't implement better counters
 // This class doesn't handle any of the fancy indexing of phi
 // fun bit tricks!
 class bit_sieve
@@ -26,7 +27,7 @@ public:
     // init with input bool array
     bit_sieve(const std::vector<bool>& ind) :
         len(ind.size()),
-        t(ceil_div(len, 64), 0),
+        t((len - 1) / 64 + 1, 0),
         sum(0)
     {
         for (size_t i = 0; i < ind.size(); ++i)
@@ -48,7 +49,7 @@ public:
         uint64_t rw = r / 64, ri = r % 64;
 
         uint64_t lmask = ~0ULL << li; // all 1s except lowest l bits
-        uint64_t rmask = (1ULL << (ri + 1)) - 1; // all 0s except lowest r+1 bits
+        uint64_t rmask = ~0ULL >> (63 - ri); // all 0s except lowest r+1 bits
        
         // special case: within one word
         if (lw == rw)
