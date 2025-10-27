@@ -16,6 +16,7 @@ int main()
     bit_sieve B(ind);
 
     assert(B.sum_range(0, 0) == 1);
+    assert(B.sum_range(0, 63) == 64); // better test for rmask shifting
     assert(B.sum_range(100, 100) == 1);
     assert(B.sum_range(3, 7) == 5);
     assert(B.sum_range(10, 90) == 81);

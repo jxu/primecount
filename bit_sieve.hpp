@@ -50,7 +50,8 @@ public:
 
         uint64_t lmask = ~0ULL << li; // all 1s except lowest l bits
         uint64_t rmask = ~0ULL >> (63 - ri); // all 0s except lowest r+1 bits
-       
+        // WRONG: (1ULL << (ri+1)) - 1 as shifting by 64 is UB!
+ 
         // special case: within one word
         if (lw == rw)
         {
