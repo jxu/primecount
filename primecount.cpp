@@ -1,4 +1,3 @@
-#include <stdexcept>
 #include <vector>
 #include <iostream>
 #include <cmath>
@@ -21,8 +20,7 @@ public:
     fenwick_tree(const std::vector<bool>& ind) :
         t(ind.size(), 0)
     {
-        if (ind.size() > MSB_MASK)
-            throw std::out_of_range("input vec is limited to 31 bits");
+        assert(ind.size() < MSB_MASK);
 
         // fancy linear time construction
         for (uint32_t i = 0; i < t.size(); ++i)
@@ -40,8 +38,7 @@ public:
     // sum values a[0..r] (0-based)
     uint32_t sum_to(int32_t r) const
     {
-        if (size_t(r) >= t.size())
-            throw std::out_of_range("sum_to out of range");
+        assert(size_t(r) < t.size());
 
         uint32_t s = 0;
         // r can go negative here in the weird 0-indexed tree
@@ -54,8 +51,7 @@ public:
     // 0-based input
     void try_decrease(uint32_t i)
     {
-        if (i >= t.size())
-            throw std::out_of_range("try_decrease out of range");
+        assert(i < t.size());
 
         if (t[i] & MSB_MASK) // if set
         {
