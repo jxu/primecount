@@ -1,16 +1,152 @@
-#pragma once
 #include <stdexcept>
 #include <vector>
 #include <iostream>
 #include <cmath>
 #include <cassert>
 #include <cstdint>
+#include <random>
 
-#include "phi_block.hpp"
+// Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
+// customized to save memory by only operating over a bit array (0/1 input)
+// Fits exactly in a power of 2 space!
+// Using the MSB for the underlying bool array isn't faster but it's bit fun
+class fenwick_tree
+{
+private:
+    const uint32_t MSB_MASK = 1UL << 31;
+    std::vector<uint32_t>   t;   // 0-indexed tree
 
+public:
+    // init with input bool array
+    fenwick_tree(const std::vector<bool>& ind) :
+        t(ind.size(), 0)
+    {
+        if (ind.size() > MSB_MASK)
+            throw std::out_of_range("input vec is limited to 31 bits");
+
+        // fancy linear time construction
+        for (uint32_t i = 0; i < t.size(); ++i)
+        {
+            t[i] += ind[i]; // add input 0/1 to sums
+            // should stay with MSB unset
+            uint32_t r = i | (i + 1);
+            if (r < t.size())
+                t[r] += t[i]; // push forward (ignoring MSB)
+            
+            t[i] |= ind[i] << 31; // set MSB with input bool
+        }
+    }
+
+    // sum values a[0..r] (0-based)
+    uint32_t sum_to(int32_t r) const
+    {
+        if (size_t(r) >= t.size())
+            throw std::out_of_range("sum_to out of range");
+
+        uint32_t s = 0;
+        // r can go negative here in the weird 0-indexed tree
+        for (; r >= 0; r = (r & (r + 1)) - 1)
+            s += t[r];
+        return s & ~MSB_MASK; // return without MSB
+    }
+
+    // will only decrease if underlying ind[i] = 1
+    // 0-based input
+    void try_decrease(uint32_t i)
+    {
+        if (i >= t.size())
+            throw std::out_of_range("try_decrease out of range");
+
+        if (t[i] & MSB_MASK) // if set
+        {
+            t[i] &= ~MSB_MASK; // unset
+            for (; i < t.size(); i |= (i + 1))
+                --t[i]; // ignore MSB
+        }
+    }
+};
+
+
+// ceil(x/y) for positive integers
+int64_t ceil_div(int64_t x, int64_t y)
+{
+    return x / y + (x % y > 0);
+}
+
+// Represents Bk = [zk1, zk) that partition [1, ceil(z)]
+// The interval size should be O(iacbrtx) in theory
+//
+// In the whole computation, Bk processed sequentially for k = 1 to K
+// (potentially parallelizable by tracking phi(zk1-1,b) base values used)
+// Within each Bk:
+// For b from 1 to a:
+//   Sieve out pb
+//   Update S1b and S2b
+
+// The physical block size is half the logical size by only storing odd values
+// For example, [51, 101) would map to ind [0, 25) via y -> (y-zk1)/2
+
+class PhiBlock
+{
+public:
+    int64_t          zk1;       // z_{k-1}, block lower bound (inclusive)
+    int64_t          zk;        // z_k, block upper bound (exclusive)
+    size_t           bsize;     // logical block size
+    size_t           psize;     // physical block size
+
+    fenwick_tree     phi_sum;   // data structure for efficient partial sums
+
+    // construct new block without k or b explicitly
+    PhiBlock(const std::vector<bool>& ind, size_t zk1, size_t zk) :
+        zk1(zk1),
+        zk(zk),
+        bsize(zk - zk1),
+        psize(bsize / 2),
+        phi_sum(ind)
+    {
+        assert(zk1 % 2 == 1);
+        assert(bsize % 2 == 0);
+    }
+
+    // translate into actual index into tree
+    size_t tree_index(const int64_t y) const
+    {
+        return (y - zk1)/2;
+    }
+
+    // sum contribution of this block to phi(y,b)
+    // = phi(y,b) - phi(zk1 - 1, b) base
+    int64_t sum_to(int64_t y) const
+    {
+        assert(y >= zk1);
+        assert(y < zk);
+        return phi_sum.sum_to(tree_index(y));
+    }
+
+    // sieve out multiples of p_b for this block (including p_b)
+    void sieve_out(int64_t pb)
+    {
+        assert(pb > 2); // 2 already sieved by default
+
+        // sieve out pb
+        if (zk1 <= pb && pb < zk)
+            phi_sum.try_decrease(tree_index(pb));
+
+        // now only need to start at pb^2
+        // (doesn't really help)
+        int64_t j0 = std::max(pb*pb, pb * ceil_div(zk1, pb));
+        if (j0 % 2 == 0)
+            j0 += pb; // ensure odd
+
+        for (int64_t j = j0; j < zk; j += 2*pb)
+        {
+            phi_sum.try_decrease(tree_index(j));
+        }
+    }
+};
 
 // signum: returns -1, 0, or 1
-inline int sgn(int64_t x)
+int sgn(int64_t x)
 {
     return (x > 0) - (x < 0);
 }
@@ -18,7 +154,7 @@ inline int sgn(int64_t x)
 
 // convenient pi upper bound when x is beyond iacbrtx table
 // (Rosser and Schoenfeld 1962)
-inline double pi_bound(uint64_t x)
+double pi_bound(uint64_t x)
 {
     if (x <= 1) return 1;
     return 1.25506 * double(x) / log(x);
@@ -513,3 +649,157 @@ public:
     }
 };
 
+// TESTS
+// checks ft.sum_to(i) == sum v[0:i]
+void check_ft_equal(const fenwick_tree& ft, const std::vector<bool>& v)
+{
+    uint32_t s = 0;
+    for (size_t i = 0; i < v.size(); ++i)
+    {
+        s += v[i];
+        assert(ft.sum_to(i) == s);
+    }
+}
+
+void test_fenwick_tree()
+{
+    // example: fenwick tree over array
+    std::vector<bool> v1 = {1, 1, 0, 1, 1};
+    fenwick_tree ft(v1);
+    check_ft_equal(ft, v1);
+
+    v1[1] = 0;
+    ft.try_decrease(1);
+    check_ft_equal(ft, v1);
+
+    v1[1] = 0;
+    ft.try_decrease(1); // should not change
+    check_ft_equal(ft, v1);
+
+    v1[4] = 0;
+    ft.try_decrease(4);
+    check_ft_equal(ft, v1);
+
+    // randomized testing
+    std::mt19937 rng(1229);
+    const int n = 1000;
+    std::uniform_int_distribution<> unif1(0, 1);
+    std::uniform_int_distribution<> unifn(0, n-1);
+
+    for (int t = 0; t < 10; ++t) // trials
+    {
+        // randomly fill bool vector
+        std::vector<bool> ind(n);
+        for (int j = 0; j < n; ++j)
+            ind[j] = unif1(rng);
+
+        // init tree from vector
+        fenwick_tree ft(ind);
+
+        check_ft_equal(ft, ind);
+
+        // pick random indices to decrease and check FT
+        for (int j = 0; j < 100; ++j)
+        {
+            int x = unifn(rng);
+            ind[x] = 0;
+            ft.try_decrease(x);
+            check_ft_equal(ft, ind);
+        }
+    }
+
+    std::cout << "Fenwick tree tests passed" << std::endl;
+}
+
+// Test PhiBlock values without base match a reference
+void check_phiyb(const PhiBlock& pb, const std::vector<int>& ref)
+{
+    for (int64_t i = pb.zk1; i < pb.zk; ++i)
+    {
+        assert(pb.sum_to(i) == ref[i-pb.zk1]);
+    }
+}
+
+
+void test_phi_block()
+{
+    std::vector<bool> ind(25, 1);
+    PhiBlock pb(ind, 1, 51);
+    // by design, phi block already has b = 1, p_b = 2 sieved out
+    // sieved out evens, so remaining are 1,3,5,7,... = 1 mod 2
+    const std::vector<int> phi11 =
+    {
+        1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,
+        11,11,12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,19,20,20,
+        21,21,22,22,23,23,24,24,25,25
+    };
+
+    // sieved out by 3s, so remaining are 1, 5, 7, 11, ... = 1,5 mod 6
+    std::vector<int> phi12 =
+    {
+        1,1,1,1,2,2,3,3,3,3,4,4,5,5,5,5,6,6,7,7,
+        7,7,8,8,9,9,9,9,10,10,11,11,11,11,12,12,13,13,13,13,
+        14,14,15,15,15,15,16,16,17,17
+    };
+
+    check_phiyb(pb, phi11);
+
+    // sieve out b = 2, p_b = 3
+    pb.sieve_out(3);
+    check_phiyb(pb, phi12);
+
+    // TODO: automated test
+}
+
+
+int main(int argc, char* argv[])
+{
+    // special test mode
+    if (argc == 1)
+    {
+        test_fenwick_tree();
+        test_phi_block();
+        std::cout << "All tests passed!" << std::endl;
+        return 0;
+    }
+
+
+    if (!(argc == 2 || argc == 5))
+    {
+        std::cerr << "Usage: ./primecount X [ALPHA BLOCKMIN BLOCKMAX]\n";
+        return 1;
+    }
+
+    // setup primecount tuning parameters to pass in
+
+    // read float like 1e12 from command line (may not be exact for > 2^53)
+    double Xf = atof(argv[1]);
+    if (Xf > (1ll << 53))
+        std::cout << "WARNING: atof may not be exact, " <<
+            "and you may need to change parameters for memory\n";
+    if (Xf > 1e19)
+        throw std::out_of_range("X too big!");
+
+    // convert double to int
+    uint64_t X = Xf;
+    int64_t alpha = std::max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
+    int64_t blockmin = 16;
+    int64_t blockmax = 24;
+
+    if (argc == 5) // override defaults
+    {
+        alpha = atoi(argv[2]);
+        blockmin = atoi(argv[3]);
+        blockmax = atoi(argv[4]);
+    }
+
+    std::cout << "Computing for X = " << X << std::endl;
+    std::cout << "Alpha = " << alpha << std::endl;
+    std::cout << "BLOCKMIN = " << blockmin << std::endl;
+    std::cout << "BLOCKMAX = " << blockmax << std::endl;
+
+    // main class init
+    Primecount primecount(X, alpha, blockmin, blockmax);
+
+    std::cout << primecount.primecount() << std::endl;
+}
