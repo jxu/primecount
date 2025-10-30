@@ -5,9 +5,37 @@
 #include <math.h>
 #include <stdio.h>
 
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
 typedef uint32_t* fenwick_tree; // light abstraction
 
 const uint32_t MSB_MASK = 1 << 31;
+
+// tuning parameters
+int64_t ALPHA;          // tuning parameter (integer here)
+int64_t C;              // precompute phi_c parameter
+
+// global "constants" :(
+uint64_t X;        // Main value to compute pi(X) for
+int64_t Q;         // phi_c table size, shouldn't be too large
+int64_t Z;         // X^(2/3) / alpha (approx)
+int64_t ISQRTX;    // floor(sqrt(X))
+int64_t IACBRTX;   // floor(alpha cbrt(X))
+int64_t a;         // pi(alpha cbrt(X))
+int64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
+int64_t BLOCKMIN;  // minimum block size (in bits)
+int64_t BLOCKMAX;  // maximum block size (in bits)
+int64_t K;         // max k for blocks
+int64_t KL;        // how many k to parallelize at once
+
+// precomputed tables
+int64_t*    MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
+int64_t*    PRIMES;      // primes <= acbrtx
+int64_t*    PRIME_COUNT; // pi(x) over [1,acbrtx]
+int64_t*    PHI_C;       // phi(x,c) over [1,Q]
+bool*       F_C;         // f(x,c) = [pmin(x) > p_c], indicators for phi
+int64_t*    zks;         // z_k endpoints for interval [1,z]
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
@@ -70,11 +98,6 @@ void ft_delete(fenwick_tree ft)
 {
     free(ft);
 }
-
-
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
 
 // ceil(x/y) for positive integers
 int64_t ceil_div(int64_t x, int64_t y)
@@ -182,86 +205,17 @@ double pi_bound(uint64_t x)
     return 1.25506 * (double)x / log(x);
 }
 
-
-typedef struct
-{
-    // tuning parameters
-    int64_t ALPHA;          // tuning parameter (integer here)
-    int64_t C;              // precompute phi_c parameter
-
-    // "global constants"
-    uint64_t X;        // Main value to compute pi(X) for
-    int64_t Q;         // phi_c table size, shouldn't be too large
-    int64_t Z;         // X^(2/3) / alpha (approx)
-    int64_t ISQRTX;    // floor(sqrt(X))
-    int64_t IACBRTX;   // floor(alpha cbrt(X))
-    int64_t a;         // pi(alpha cbrt(X))
-    int64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
-    int64_t BLOCKMIN;  // minimum block size (in bits)
-    int64_t BLOCKMAX;  // maximum block size (in bits)
-    int64_t K;         // max k for blocks
-    int64_t KL;        // how many k to parallelize at once
-
-    // precomputed tables
-    int64_t*    MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
-    int64_t*    PRIMES;      // primes <= acbrtx
-    int64_t*    PRIME_COUNT; // pi(x) over [1,acbrtx]
-    int64_t*    PHI_C;       // phi(x,c) over [1,Q]
-    bool*       F_C;         // f(x,c) = [pmin(x) > p_c]
-    int64_t*    zks;         // z_k endpoints for interval [1,z]
-} Primecount;
-
-// Precompute phi(x,c)
-void pre_phi_c(Primecount* P)
-{
-    // compute Q as product of first C primes
-    int64_t Q = 1;
-    const int64_t C = P->C;
-
-    for (size_t i = 1; i <= C; ++i)
-        Q *= P->PRIMES[i];
-    P->Q = Q;
-
-    P->PHI_C = calloc(Q+1, sizeof(int64_t)); // alloc Q+1 zeros
-    
-    P->F_C = calloc(Q+1, sizeof(int64_t)); // Q+1 ones, index up to Q, inclusive
-    // F_C[0] = 0
-    for (size_t i = 1; i <= Q; ++i)
-        P->F_C[i] = 1;
-
-    for (size_t i = 1; i <= C; ++i)
-    {
-        int64_t p = P->PRIMES[i]; // ith prime, mark multiples as 0
-        for (int64_t j = p; j <= Q; j += p)
-            P->F_C[j] = 0;
-    }
-
-    // accumulate
-    for (int64_t i = 1; i <= Q; ++i)
-        P->PHI_C[i] = P->F_C[i] + P->PHI_C[i-1];
-}
-
-// phi(y,c) can be found quickly from the table
-int64_t phi_yc(Primecount* P, uint64_t y)
-{
-    size_t Q = P->Q;
-    int64_t* PHI_C = P->PHI_C;
-    return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
-}
-
-
 // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
-void sieve_mu_prime(Primecount* P, size_t SIEVE_SIZE)
+void sieve_mu_prime(const size_t SIEVE_SIZE)
 {
-    int64_t* MU_PMIN = P->MU_PMIN;
     // init MU_PMIN to 1s
-    MU_PMIN 
-    MU_PMIN.assign(SIEVE_SIZE+1, 1);    // init to 1s
+    MU_PMIN = calloc(SIEVE_SIZE+1, sizeof(int64_t));
     MU_PMIN[1] = 1000;                  // define pmin(1) = +inf
-    PRIMES.push_back(1);                // p0 = 1 by convention
-    PRIME_COUNT.resize(SIEVE_SIZE+1);   // init values don't matter here
-
+    
     int64_t pc = 0; // prime counter
+    PRIMES[pc++] = 1; // push p0 = 1 by convention
+
+    PRIME_COUNT = calloc(SIEVE_SIZE+1, sizeof(int64_t));
 
     // sieve of Eratosthenes, modification to keep track of mu sign and pmin
     for (size_t j = 2; j <= SIEVE_SIZE; ++j)
@@ -278,10 +232,9 @@ void sieve_mu_prime(Primecount* P, size_t SIEVE_SIZE)
     // complete MU_PMIN, compute PRIMES and PRIME_COUNT
     for (size_t j = 2; j <= SIEVE_SIZE; ++j)
     {
-        if (MU_PMIN[j] == -(int64_t)j)   // prime
+        if (MU_PMIN[j] == -(int64_t)j)   // j is prime
         {
-            PRIMES.push_back(j);
-            ++pc;
+            PRIMES[pc++] = j; // push j
 
             // mark multiples of p^2 as 0 for mu
             for (size_t i = j*j; i <= SIEVE_SIZE; i += j*j)
@@ -292,67 +245,98 @@ void sieve_mu_prime(Primecount* P, size_t SIEVE_SIZE)
     }
 }
 
-
-
-
-Primecount* primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockmax)
+// Precompute PHI_C = phi(x,c) and F_C = f(n,c)
+void pre_phi_c(void)
 {
-    Primecount* P = malloc(sizeof(P));
+    // compute Q as product of first C primes
+    for (size_t i = 1; i <= C; ++i)
+        Q *= PRIMES[i];
 
+    PHI_C = calloc(Q+1, sizeof(int64_t)); // alloc Q+1 zeros
+    
+    F_C = calloc(Q+1, sizeof(int64_t)); // Q+1 ones, index up to Q, inclusive
+    // F_C[0] = 0
+    for (size_t i = 1; i <= Q; ++i)
+        F_C[i] = 1;
+
+    for (size_t i = 1; i <= C; ++i)
+    {
+        int64_t p = PRIMES[i]; // ith prime, mark multiples as 0
+        for (int64_t j = p; j <= Q; j += p)
+            F_C[j] = 0;
+    }
+
+    // accumulate
+    for (int64_t i = 1; i <= Q; ++i)
+        PHI_C[i] = F_C[i] + PHI_C[i-1];
+}
+
+// phi(y,c) can be found quickly from the table
+int64_t phi_yc(const uint64_t y)
+{
+    return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
+}
+
+
+
+void primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockmax)
+{
     // Init variables
-    P->ALPHA = alpha;
-    P->X = x;
+    ALPHA = alpha;
+    X = x;
     // Q after sieve
     // hope floating point truncated values are exact floors
-    P->Z = cbrt(x) * cbrt(x) / alpha; // approx
-    P->ISQRTX = sqrt(x);
-    P->IACBRTX = alpha * cbrt(x);
-    P->BLOCKMIN = blockmin;
-    P->BLOCKMAX = blockmax;
+    Z = cbrt(x) * cbrt(x) / alpha; // approx
+    ISQRTX = sqrt(x);
+    IACBRTX = alpha * cbrt(x);
+    BLOCKMIN = blockmin;
+    BLOCKMAX = blockmax;
    
-    P->C = 8; // default
-    P->KL = 64; // default
+    C = 8; // default
+    KL = 64; // default
 
     assert(x >= 100); // program not designed for tiny inputs
 
     // check alpha isn't set too large
     assert(alpha <= pow(x, 1./6));
 
-    printf("Z = %ld\n", P->Z);
-    printf("IACBRTX = %ld\n", P->IACBRTX);
-    printf("ISQRTX = %ld\n", P->ISQRTX);
+    printf("Z = %ld\n", Z);
+    printf("IACBRTX = %ld\n", IACBRTX);
+    printf("ISQRTX = %ld\n", ISQRTX);
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN
     // Since p_{a+1} may be needed in S2, leave margin
-    size_t SIEVE_SIZE = P->IACBRTX + 200;
+    size_t SIEVE_SIZE = IACBRTX + 200;
     sieve_mu_prime(SIEVE_SIZE);
 
-    P->a = P->PRIME_COUNT[P->IACBRTX];
-    printf("a = %ld\n", P->a);
+    a = PRIME_COUNT[IACBRTX];
+    printf("a = %ld\n", a);
 
     //assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
-    P->astar = P->PRIME_COUNT[(int64_t)(sqrt(P->ALPHA) * pow(P->X, 1/6.))];
-    printf("a* = %ld\n", P->astar);
+    astar = PRIME_COUNT[(int64_t)(sqrt(ALPHA) * pow(X, 1/6.))];
+    printf("a* = %ld\n", astar);
 
-    P->C = MIN(P->astar, P->C);
-    printf("C = %ld\n", P->C);
+    C = MIN(astar, C);
+    printf("C = %ld\n", C);
 
     // precompute PHI_C tables
-    pre_phi_c(C);
+    pre_phi_c();
 
     // create z_k endpoints
     const size_t BSIZE = 1 << BLOCKMAX;
-    zks = {1};
+
+    zks = calloc(X / BLOCKMIN + 1, sizeof(int64_t));
+    K = 0;
+    zks[K++] = 1; // starting bound
 
     for (int64_t i = BLOCKMIN; i < BLOCKMAX; ++i)
-        zks.push_back((1 << i) + 1);
+        zks[K++] = (1 << i) + 1;
 
     for (size_t i = 1 + BSIZE; i <= Z + BSIZE; i += BSIZE)
-        zks.push_back(i);
+        zks[K++] = i;
 
-    K = zks.size() - 1;
-    printf( << "K = " << K << std::endl;
+    printf("K = %ld\n", K);
 }
 
     // contribution of ordinary leaves to phi(x,a)
