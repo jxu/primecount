@@ -1,16 +1,14 @@
 CC = gcc
-CCFLAGS = -Wall -Wextra -lm -fopenmp
+CCFLAGS = -Wall -Wextra -fopenmp
+LDFLAGS = -lm
 
-.PHONY: primecount tests
 # Target-specific variable values
 release: CCFLAGS += -O3
 release: primecount
 
 debug: CCFLAGS += -Og -g
-debug: tests
+debug: primecount
 
-primecount: main.c
-	$(CC) $(CCFLAGS) -o $@ $<
+primecount: primecount.c
+	$(CC) $(CCFLAGS) -o $@ $< $(LDFLAGS)
 
-tests: tests.c
-	$(CC) $(CCFLAGS) -o $@ $<
