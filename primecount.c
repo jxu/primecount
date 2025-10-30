@@ -54,13 +54,13 @@ fenwick_tree ft_new(bool* ind, uint32_t len)
     // fancy linear time construction
     for (uint32_t i = 1; i <= len; ++i)
     {
-        ft[i] += ind[i-1]; // add input 0/1 to sums
+        ft[i] = ft[i] + (uint32_t)ind[i-1]; // add input 0/1 to sums
         // should stay with MSB unset
         uint32_t r = i + (i & -i);
         if (r <= len)
             ft[r] += ft[i]; // push forward (ignoring MSB)
         
-        ft[i] |= ind[i-1] << 31; // set MSB with input bool
+        ft[i] |= (uint32_t)ind[i-1] << 31; // set MSB with input bool
     }
 
     return ft;
@@ -130,7 +130,7 @@ typedef struct
 
 
 // construct new block without k or b explicitly
-// ind should be length zk - zk1
+// ind should be length psize
 phi_block* phi_block_new(bool ind[], size_t zk1, size_t zk)
 {
     phi_block* block = malloc(sizeof(phi_block));
@@ -143,7 +143,7 @@ phi_block* phi_block_new(bool ind[], size_t zk1, size_t zk)
     assert(zk1 % 2 == 1);
     assert(block->bsize % 2 == 0);
 
-    block->phi_sum = ft_new(ind, block->bsize);
+    block->phi_sum = ft_new(ind, block->psize);
 
     return block;
 }
@@ -210,9 +210,13 @@ void sieve_mu_prime(const size_t SIEVE_SIZE)
 {
     // init MU_PMIN to 1s
     MU_PMIN = calloc(SIEVE_SIZE+1, sizeof(int64_t));
+    for (size_t i = 0; i < SIEVE_SIZE+1; ++i)
+        MU_PMIN[i] = 1;
+
     MU_PMIN[1] = 1000;                  // define pmin(1) = +inf
     
     int64_t pc = 0; // prime counter
+    PRIMES = calloc(SIEVE_SIZE+1, sizeof(int64_t)); // more than necessary
     PRIMES[pc++] = 1; // push p0 = 1 by convention
 
     PRIME_COUNT = calloc(SIEVE_SIZE+1, sizeof(int64_t));
@@ -249,12 +253,13 @@ void sieve_mu_prime(const size_t SIEVE_SIZE)
 void pre_phi_c(void)
 {
     // compute Q as product of first C primes
+    Q = 1;
     for (size_t i = 1; i <= C; ++i)
         Q *= PRIMES[i];
 
     PHI_C = calloc(Q+1, sizeof(int64_t)); // alloc Q+1 zeros
     
-    F_C = calloc(Q+1, sizeof(int64_t)); // Q+1 ones, index up to Q, inclusive
+    F_C = calloc(Q+1, sizeof *F_C); // Q+1 ones, index up to Q, inclusive
     // F_C[0] = 0
     for (size_t i = 1; i <= Q; ++i)
         F_C[i] = 1;
@@ -324,16 +329,21 @@ void primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockma
     pre_phi_c();
 
     // create z_k endpoints
-    const size_t BSIZE = 1 << BLOCKMAX;
+    const size_t BSIZE = 1ULL << BLOCKMAX;
 
-    zks = calloc(X / BLOCKMIN + 1, sizeof(int64_t));
+    zks = calloc(MAX(2, Z / BLOCKMIN), sizeof(int64_t));
     K = 0;
     zks[K++] = 1; // starting bound
 
-    for (int64_t i = BLOCKMIN; i < BLOCKMAX; ++i)
-        zks[K++] = (1 << i) + 1;
+    for (int64_t i = BLOCKMIN; (i < BLOCKMAX); ++i)
+    {
+        int64_t zk = (1ULL << i) + 1;
+        zks[K++] = zk;
+        if (zk > Z) break;
+    
+    }
 
-    for (size_t i = 1 + BSIZE; i <= Z + BSIZE; i += BSIZE)
+    for (size_t i = (1ULL << BLOCKMAX) + BSIZE; i <= Z + BSIZE; i += BSIZE)
         zks[K++] = i;
 
     printf("K = %ld\n", K);

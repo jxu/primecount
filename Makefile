@@ -6,7 +6,7 @@ LDFLAGS = -lm
 release: CCFLAGS += -O3
 release: primecount
 
-debug: CCFLAGS += -Og -g
+debug: CCFLAGS += -Og -g -fsanitize=undefined
 debug: primecount
 
 primecount: primecount.c
