@@ -7,6 +7,8 @@
 
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define CEIL_DIV(x,y) (x) / (y) + ((x) % (y) > 0)
+
 
 typedef uint32_t* fenwick_tree; // light abstraction
 
@@ -99,12 +101,6 @@ void ft_delete(fenwick_tree ft)
     free(ft);
 }
 
-// ceil(x/y) for positive integers
-int64_t ceil_div(int64_t x, int64_t y)
-{
-    return x / y + (x % y > 0);
-}
-
 // Represents Bk = [zk1, zk) that partition [1, ceil(z)]
 // The interval size should be O(iacbrtx) in theory
 //
@@ -174,7 +170,7 @@ void sieve_out(phi_block* block, int64_t pb)
 
     // now only need to start at pb^2
     // (doesn't really help)
-    int64_t j0 = MAX(pb*pb, pb * ceil_div(block->zk1, pb));
+    int64_t j0 = MAX(pb*pb, pb * CEIL_DIV(block->zk1, pb));
     if (j0 % 2 == 0)
         j0 += pb; // ensure odd
 
@@ -215,7 +211,7 @@ void sieve_mu_prime(const size_t SIEVE_SIZE)
 
     MU_PMIN[1] = 1000;                  // define pmin(1) = +inf
     
-    int64_t pc = 0; // prime counter
+    int64_t pc = 0; // prime counter (including p0 = 1)
     PRIMES = calloc(SIEVE_SIZE+1, sizeof(int64_t)); // more than necessary
     PRIMES[pc++] = 1; // push p0 = 1 by convention
 
@@ -228,7 +224,7 @@ void sieve_mu_prime(const size_t SIEVE_SIZE)
         {
             for (size_t i = j; i <= SIEVE_SIZE; i += j)
             {
-                MU_PMIN[i] = (MU_PMIN[i] == 1) ? -j : -MU_PMIN[i];
+                MU_PMIN[i] = (MU_PMIN[i] == 1) ? -(int64_t)j : -MU_PMIN[i];
             }
         }
     }
@@ -238,6 +234,7 @@ void sieve_mu_prime(const size_t SIEVE_SIZE)
     {
         if (MU_PMIN[j] == -(int64_t)j)   // j is prime
         {
+            //printf("j prime %ld\n", j);
             PRIMES[pc++] = j; // push j
 
             // mark multiples of p^2 as 0 for mu
@@ -245,7 +242,7 @@ void sieve_mu_prime(const size_t SIEVE_SIZE)
                 MU_PMIN[i] = 0;
         }
 
-        PRIME_COUNT[j] = pc;
+        PRIME_COUNT[j] = pc - 1; // don't include p0 = 1
     }
 }
 
@@ -254,17 +251,17 @@ void pre_phi_c(void)
 {
     // compute Q as product of first C primes
     Q = 1;
-    for (size_t i = 1; i <= C; ++i)
+    for (size_t i = 1; i <= (size_t)C; ++i)
         Q *= PRIMES[i];
 
     PHI_C = calloc(Q+1, sizeof(int64_t)); // alloc Q+1 zeros
     
     F_C = calloc(Q+1, sizeof *F_C); // Q+1 ones, index up to Q, inclusive
     // F_C[0] = 0
-    for (size_t i = 1; i <= Q; ++i)
+    for (size_t i = 1; i <= (size_t)Q; ++i)
         F_C[i] = 1;
 
-    for (size_t i = 1; i <= C; ++i)
+    for (size_t i = 1; i <= (size_t)C; ++i)
     {
         int64_t p = PRIMES[i]; // ith prime, mark multiples as 0
         for (int64_t j = p; j <= Q; j += p)
@@ -334,17 +331,28 @@ void primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockma
     zks = calloc(MAX(2, Z / BLOCKMIN), sizeof(int64_t));
     K = 0;
     zks[K++] = 1; // starting bound
+    printf("zks %ld ", zks[0]);
 
+    int64_t zk;
     for (int64_t i = BLOCKMIN; (i < BLOCKMAX); ++i)
     {
-        int64_t zk = (1ULL << i) + 1;
+        zk = (1ULL << i) + 1;
         zks[K++] = zk;
+        printf("%ld ", zk);
         if (zk > Z) break;
     
     }
 
-    for (size_t i = (1ULL << BLOCKMAX) + BSIZE; i <= Z + BSIZE; i += BSIZE)
-        zks[K++] = i;
+    if (zk <= Z)
+    {
+        
+        for (size_t i = 1 + (1ULL << BLOCKMAX); i <= Z + BSIZE; i += BSIZE)
+        {
+            zks[K++] = i;
+            printf("%ld ", i);
+        }
+    }
+    --K; // adjust K to have bounds z0 < z1 < ... < zK
 
     printf("K = %ld\n", K);
 }
@@ -468,7 +476,7 @@ int64_t P2_iter(const phi_block* block, int64_t* v, int64_t* phi_defer)
 
     // sieve interval [w,u] fully, then count remaining primes
     bool* aux = calloc(u - w + 1, sizeof(bool));
-    for (size_t i = 0; i <= u - w; ++i)
+    for (size_t i = 0; i <= (size_t)(u - w); ++i)
         aux[i] = 1;
 
     for (size_t i = 1; ; ++i)
@@ -479,11 +487,9 @@ int64_t P2_iter(const phi_block* block, int64_t* v, int64_t* phi_defer)
             break;
 
         // only need to start marking multiples at p^2
-        int64_t j0 = MAX(p*p, p * ceil_div(w, p));
+        int64_t j0 = MAX(p*p, p * CEIL_DIV(w, p));
         for (int64_t j = j0; j <= u; j += p)
-        {
             aux[j - w] = 0;
-        }
     }
 
     // add pi(x / pb) where x / pb is in interval
@@ -502,7 +508,7 @@ int64_t P2_iter(const phi_block* block, int64_t* v, int64_t* phi_defer)
         ++defer;
     }
 
-    v += v_defer;
+    *v += v_defer;
     *phi_defer = defer;
 
     free(aux);
@@ -527,7 +533,7 @@ int64_t primecount(void)
     // Phi2
     int64_t P2 = a * (a-1) / 2; // starting sum
     int64_t* vs = calloc(K + 1, sizeof *vs);
-    int64_t v = a;
+    int64_t v = a; // counts primes up to sqrt(x) 
 
     // Init S2 vars
     for (int64_t b = astar; b < a - 1; ++b)
@@ -554,13 +560,13 @@ int64_t primecount(void)
     #define IXAS(i,j) ((i)*(astar+1) + (j))
     
     // Only take KL-size batches at once to avoid excessive table space
-    int64_t* block_sum      = calloc(KL * (a+1), sizeof(int64_t));
-    int64_t* phi_save       = calloc(KL * (a+1), sizeof(int64_t));
+    int64_t* block_sum      = calloc(IXA(KL,0), sizeof(int64_t));
+    int64_t* phi_save       = calloc(IXA(KL,0), sizeof(int64_t));
     int64_t* phi_save_prev  = calloc(a+1, sizeof(int64_t));
 
     // deferred counts of phi_save from phi(y,b) calls
-    int64_t* S1_defer       = calloc(KL * (astar+1), sizeof(int64_t));
-    int64_t* S2_defer       = calloc(KL * (a+1), sizeof(int64_t));
+    int64_t* S1_defer       = calloc(IXAS(KL,0), sizeof(int64_t));
+    int64_t* S2_defer       = calloc(IXA(KL,0), sizeof(int64_t));
     int64_t* P2_defer       = calloc(KL, sizeof(int64_t));
 
 
@@ -581,6 +587,7 @@ int64_t primecount(void)
         {
             int64_t zk1 = zks[k-1];
             int64_t zk = zks[k];
+            assert(zk1 < zk);
 
             // Message may appear broken in multithreading
             printf("Start block %ld [%lx,%lx)\n", k, zk1, zk);
@@ -590,7 +597,7 @@ int64_t primecount(void)
             // actually not faster than starting at b = 2
             bool* ind = calloc((zk-zk1)/2, sizeof(bool));
 
-            for (size_t i = 0; i < (zk-zk1)/2; ++i)
+            for (size_t i = 0; i < (size_t)(zk-zk1)/2; ++i)
                 ind[i] = F_C[(zk1 + 2*i) % Q];
 
             // init new block
@@ -662,7 +669,7 @@ int64_t primecount(void)
         }
 
         // save block_sum for next batch
-        for (size_t i = 0; i < a+1; ++i)
+        for (size_t i = 0; i < (size_t)a+1; ++i)
             phi_save_prev[i] = phi_save[IXA(KL-1,i)];
     }
 
@@ -672,6 +679,8 @@ int64_t primecount(void)
 
     // Finalize P2
     P2 -= v*(v-1)/2;
+
+    printf("v = %ld\n", v);
 
     free(block_sum);
     free(phi_save);
@@ -796,7 +805,6 @@ void test_phi_block()
 
     // TODO: automated test
 }
-
 
 
 
