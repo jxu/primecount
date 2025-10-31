@@ -36,13 +36,13 @@ public:
     }
 
     // sum values a[0..r] (0-based)
-    uint32_t sum_to(int32_t r) const
+    uint32_t sum_to(uint32_t r) const
     {
         assert(size_t(r) < t.size());
 
         uint32_t s = 0;
-        // r can go negative here in the weird 0-indexed tree
-        for (; r >= 0; r = (r & (r + 1)) - 1)
+        // r can go "negative" here in the weird 0-indexed tree
+        for (; r < MSB_MASK; r = (r & (r + 1)) - 1)
             s += t[r];
         return s & ~MSB_MASK; // return without MSB
     }
