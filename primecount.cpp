@@ -36,7 +36,7 @@ public:
             u32 r = i | (i + 1);
             if (r < t.size())
                 t[r] += t[i]; // push forward (ignoring MSB)
-            
+
             t[i] |= ind[i] << 31; // set MSB with input bool
         }
     }
@@ -231,7 +231,7 @@ public:
         cout << "C = " << C << endl;
 
         // precompute PHI_C tables
-        pre_phi_c(C);
+        pre_phi_c();
 
         // create z_k endpoints
         const size_t BSIZE = 1 << BLOCKMAX;
@@ -287,7 +287,7 @@ public:
     }
 
     // Precompute phi(x,c)
-    void pre_phi_c(size_t C)
+    void pre_phi_c()
     {
         // compute Q as product of first C primes
         Q = 1;
@@ -486,7 +486,7 @@ public:
         u64 v = A;
 
         cout << "S0 = " << S0 << "\n";
-        
+
         // Init S2 vars
         for (u64 b = ASTAR; b < A - 1; ++b)
         {
@@ -535,12 +535,12 @@ public:
                 u64 zk1 = zks[k-1];
                 u64 zk = zks[k];
 
-                // not actually critical, but lock printing makes it nicer 
-                #pragma omp critical 
+                // not actually critical, but lock printing makes it nicer
+                #pragma omp critical
                 {
-                    cout << "Start block " << k 
-                        << hex << " [0x" << zk1 << ",0x" << zk << ")" 
-                        << dec << endl;
+                    cout << "Start block " << k
+                         << hex << " [0x" << zk1 << ",0x" << zk << ")"
+                         << dec << endl;
                 }
 
                 // construct new phi_block with p1, ..., pc already sieved out
@@ -552,7 +552,7 @@ public:
                     ind[i] = F_C[(zk1 + 2*i) % Q];
 
                 // init new block
-                PhiBlock phi_block = PhiBlock(ind, zk1, zk);
+                PhiBlock phi_block(ind, zk1, zk);
 
                 // For each b...
                 for (u64 b = C; b <= A; ++b)
@@ -599,8 +599,8 @@ public:
                 {
                     // accumulate full phi(zk-1,b) from Bk and all previous
                     u64 phi_prev = (k == k0)
-                                       ? phi_save_prev[b]
-                                       : phi_save[k-k0-1][b];
+                                   ? phi_save_prev[b]
+                                   : phi_save[k-k0-1][b];
 
                     phi_save[k-k0][b] = phi_prev + block_sum[k-k0][b];
 
@@ -755,7 +755,7 @@ int main(int argc, char* argv[])
     double Xf = atof(argv[1]);
     if (Xf > (1ll << 53))
         cout << "WARNING: atof may not be exact, " <<
-            "and you may need to change parameters for memory\n";
+             "and you may need to change parameters for memory\n";
     if (Xf > 1e19)
         throw out_of_range("X too big!");
 
