@@ -168,13 +168,13 @@ public:
     int64_t C = 8;          // precompute phi_c parameter
 
     // "global constants"
-    const uint64_t X;   // Main value to compute pi(X) for
+    const uint64_t X;  // Main value to compute pi(X) for
     int64_t Q;         // phi_c table size, shouldn't be too large
     int64_t Z;         // X^(2/3) / alpha (approx)
     int64_t ISQRTX;    // floor(sqrt(X))
     int64_t IACBRTX;   // floor(alpha cbrt(X))
-    int64_t a;         // pi(alpha cbrt(X))
-    int64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
+    int64_t A;         // pi(alpha cbrt(X))
+    int64_t ASTAR;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
     int64_t BLOCKMIN;  // minimum block size (in bits)
     int64_t BLOCKMAX;  // maximum block size (in bits)
     int64_t K;         // max k for blocks
@@ -215,15 +215,15 @@ public:
         size_t SIEVE_SIZE = IACBRTX + 200;
         sieve_mu_prime(SIEVE_SIZE);
 
-        a = PRIME_COUNT[IACBRTX];
-        std::cout << "a = " << a << std::endl;
+        A = PRIME_COUNT[IACBRTX];
+        std::cout << "a = " << A << std::endl;
 
-        assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
+        assert(PRIMES.size() > (size_t)A + 1); // need p_{a+1}
 
-        astar = PRIME_COUNT[int64_t(sqrt(ALPHA) * pow(X, 1/6.))];
-        std::cout << "a* = " << astar << std::endl;
+        ASTAR = PRIME_COUNT[int64_t(sqrt(ALPHA) * pow(X, 1/6.))];
+        std::cout << "a* = " << ASTAR << std::endl;
 
-        C = std::min(astar, C);
+        C = std::min(ASTAR, C);
         std::cout << "C = " << C << std::endl;
 
         // precompute PHI_C tables
@@ -370,7 +370,7 @@ public:
         int64_t zk = phi_block.zk;
         int64_t defer = 0;
 
-        int64_t d = a; // fixed starting point
+        int64_t d = A; // fixed starting point
 
         // attempt to optimize starting d bound
         // pd <= x / zk1
@@ -470,7 +470,7 @@ public:
             if (y >= phi_block.zk) break;
 
             ++v_defer;
-            P2 += phi_block.sum_to(y) + a - 1;
+            P2 += phi_block.sum_to(y) + A - 1;
             ++defer;
         }
 
@@ -491,26 +491,26 @@ public:
         int64_t S1 = 0;
 
         // S2
-        vec64 S2(a+1);
+        vec64 S2(A+1);
         int64_t S2s = 0;
 
         // Phi2
-        int64_t P2 = a * (a-1) / 2; // starting sum
+        int64_t P2 = A * (A-1) / 2; // starting sum
         vec64 vs(K + 1, 0);
-        int64_t v = a;
+        int64_t v = A;
 
         // Init S2 vars
-        for (int64_t b = astar; b < a - 1; ++b)
+        for (int64_t b = ASTAR; b < A - 1; ++b)
         {
             int64_t pb1 = PRIMES[b+1];
 
             int64_t tb;
             // hope this is accurate
             if (cbrt(X) <= pb1)     tb = b + 2;
-            else if (pb1*pb1 <= Z)  tb = a + 1;
+            else if (pb1*pb1 <= Z)  tb = A + 1;
             else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1;
 
-            S2[b] = a - (tb - 1);
+            S2[b] = A - (tb - 1);
         }
 
         // block_sum[k][b] = phi(zk - 1, b) - phi(zk1 - 1, b)
@@ -521,12 +521,12 @@ public:
         // to avoid false sharing (in theory)
 
         // Only take KL-size batches at once to avoid excessive table space
-        std::vector<vec64> block_sum(KL, vec64(a+1, 0));
+        std::vector<vec64> block_sum(KL, vec64(A+1, 0));
         auto phi_save = block_sum;
-        vec64 phi_save_prev(a+1, 0);
+        vec64 phi_save_prev(A+1, 0);
 
         // deferred counts of phi_save from phi(y,b) calls
-        std::vector<vec64> S1_defer(KL, vec64(astar+1, 0));
+        std::vector<vec64> S1_defer(KL, vec64(ASTAR+1, 0));
         auto S2_defer = block_sum;
         vec64 P2_defer(KL, 0);
 
@@ -567,7 +567,7 @@ public:
                 PhiBlock phi_block = PhiBlock(ind, zk1, zk);
 
                 // For each b...
-                for (int64_t b = C; b <= a; ++b)
+                for (int64_t b = C; b <= A; ++b)
                 {
                     int64_t pb = PRIMES[b];
 
@@ -578,22 +578,22 @@ public:
                     // update saved block sum for this block
                     block_sum[k-k0][b] = phi_block.sum_to(phi_block.zk - 1);
 
-                    // S1 leaves, b in [C, astar)
-                    if ((int64_t)C <= b && b < astar)
+                    // S1 leaves, b in [C, ASTAR)
+                    if ((int64_t)C <= b && b < ASTAR)
                     {
                         #pragma omp atomic
                         S1 += S1_iter(b, phi_block, S1_defer[k-k0][b]);
                     }
 
-                    // S2 leaves, b in [astar, a-1)
-                    else if (astar <= b && b < a - 1)
+                    // S2 leaves, b in [ASTAR, a-1)
+                    else if (ASTAR <= b && b < A - 1)
                     {
                         #pragma omp atomic
                         S2[b] += S2_iter(b, phi_block, S2_defer[k-k0][b]);
                     }
 
                     // phi2, after sieved out first a primes
-                    else if (b == a)
+                    else if (b == A)
                     {
                         #pragma omp atomic
                         P2 += P2_iter(phi_block, vs[k], P2_defer[k-k0]);
@@ -607,7 +607,7 @@ public:
 
             for (int64_t k = k0; k < kmax; ++k)
             {
-                for (int64_t b = C; b <= a; ++b)
+                for (int64_t b = C; b <= A; ++b)
                 {
                     // accumulate full phi(zk-1,b) from Bk and all previous
                     int64_t phi_prev = (k == k0)
@@ -616,11 +616,11 @@ public:
 
                     phi_save[k-k0][b] = phi_prev + block_sum[k-k0][b];
 
-                    if (b < astar)
+                    if (b < ASTAR)
                         S1    += phi_prev * S1_defer[k-k0][b];
-                    else if (b < a-1)
+                    else if (b < A-1)
                         S2[b] += phi_prev * S2_defer[k-k0][b];
-                    else if (b == a)
+                    else if (b == A)
                         P2    += phi_prev * P2_defer[k-k0];
                 }
                 v += vs[k];
@@ -631,7 +631,7 @@ public:
         }
 
         // Accumulate final results
-        for (int64_t b = 0; b <= a; ++b)
+        for (int64_t b = 0; b <= A; ++b)
             S2s += S2[b];
 
         // Finalize P2
@@ -641,7 +641,7 @@ public:
         std::cout << "S2 = " << S2s << std::endl;
         std::cout << "P2 = " << P2 << std::endl;
 
-        return S0 + S1 + S2s + a - 1 - P2;
+        return S0 + S1 + S2s + A - 1 - P2;
     }
 };
 
