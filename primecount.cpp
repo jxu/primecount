@@ -468,7 +468,9 @@ public:
             ++defer;
         }
 
+        #pragma omp atomic
         v += v_defer;
+
         phi_defer = defer;
         return P2;
     }
@@ -476,23 +478,15 @@ public:
 
     u64 primecount(void)
     {
-        // Sum accumulators
+        // Sum terms
         u64 S0 = S0_iter();
-
-        cout << "S0 = " << S0 << "\n";
-
-        // S1
         u64 S1 = 0;
-
-        // S2
-        vector<u64> S2(A+1);
-        u64 S2s = 0;
-
-        // Phi2
+        u64 S2 = 0;
         u64 P2 = A * (A-1) / 2; // starting sum
-        vector<u64> vs(K + 1, 0);
         u64 v = A;
 
+        cout << "S0 = " << S0 << "\n";
+        
         // Init S2 vars
         for (u64 b = ASTAR; b < A - 1; ++b)
         {
@@ -504,7 +498,7 @@ public:
             else if (pb1*pb1 <= Z)  tb = A + 1;
             else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1;
 
-            S2[b] = A - (tb - 1);
+            S2 += A - (tb - 1); // S2_b
         }
 
         // block_sum[k][b] = phi(zk - 1, b) - phi(zk1 - 1, b)
@@ -583,14 +577,14 @@ public:
                     else if (ASTAR <= b && b < A - 1)
                     {
                         #pragma omp atomic
-                        S2[b] += S2_iter(b, phi_block, S2_defer[k-k0][b]);
+                        S2 += S2_iter(b, phi_block, S2_defer[k-k0][b]);
                     }
 
                     // phi2, after sieved out first a primes
                     else if (b == A)
                     {
                         #pragma omp atomic
-                        P2 += P2_iter(phi_block, vs[k], P2_defer[k-k0]);
+                        P2 += P2_iter(phi_block, v, P2_defer[k-k0]);
                     }
                 }
 
@@ -613,29 +607,24 @@ public:
                     if (b < ASTAR)
                         S1    += phi_prev * S1_defer[k-k0][b];
                     else if (b < A-1)
-                        S2[b] += phi_prev * S2_defer[k-k0][b];
+                        S2    += phi_prev * S2_defer[k-k0][b];
                     else if (b == A)
                         P2    += phi_prev * P2_defer[k-k0];
                 }
-                v += vs[k];
             }
 
             // save block_sum for next batch
             phi_save_prev = phi_save[KL-1];
         }
 
-        // Accumulate final results
-        for (u64 b = 0; b <= A; ++b)
-            S2s += S2[b];
-
         // Finalize P2
-        P2 -= v*(v-1)/2;
+        P2 -= v * (v - 1) /2;
 
         cout << "S1 = " << S1 << endl;
-        cout << "S2 = " << S2s << endl;
+        cout << "S2 = " << S2 << endl;
         cout << "P2 = " << P2 << endl;
 
-        return S0 + S1 + S2s + A - 1 - P2;
+        return S0 + S1 + S2 + A - 1 - P2;
     }
 };
 
