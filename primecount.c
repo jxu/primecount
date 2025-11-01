@@ -476,7 +476,7 @@ int64_t P2_iter(const phi_block* block, int64_t* v, int64_t* phi_defer)
 
     // sieve interval [w,u] fully, then count remaining primes
     bool* aux = calloc(u - w + 1, sizeof(bool));
-    for (size_t i = 0; i <= (size_t)(u - w); ++i)
+    for (size_t i = 0; i < (size_t)(u - w + 1); ++i)
         aux[i] = 1;
 
     for (size_t i = 1; ; ++i)
@@ -603,6 +603,8 @@ int64_t primecount(void)
             // init new block
             phi_block* block = phi_block_new(ind, zk1, zk);
 
+            free(ind);
+
             // For each b...
             for (int64_t b = C; b <= a; ++b)
             {
@@ -639,7 +641,6 @@ int64_t primecount(void)
 
             // clean up task memory
             phi_block_delete(block);
-            free(ind);
 
             printf("End block %ld\n", k);
         } // end parallel, implicit barrier
@@ -682,6 +683,8 @@ int64_t primecount(void)
 
     printf("v = %ld\n", v);
 
+    free(S2);
+    free(vs);
     free(block_sum);
     free(phi_save);
     free(phi_save_prev);
@@ -692,6 +695,16 @@ int64_t primecount(void)
     printf("S1 = %ld\nS2 = %ld\nP2 = %ld\n", S1, S2s, P2);
 
     return S0 + S1 + S2s + a - 1 - P2;
+}
+
+void primecount_delete(void)
+{
+    free(MU_PMIN);
+    free(PRIMES);
+    free(PRIME_COUNT);
+    free(PHI_C);
+    free(F_C);
+    free(zks);
 }
 
 // Basic tests
@@ -728,37 +741,9 @@ void test_fenwick_tree()
     ft_try_decrease(ft, 4);
     check_ft_equal(ft, v1);
 
-    /*
-    // randomized testing
-    std::mt19937 rng(1229);
-    const int n = 1000;
-    std::uniform_int_distribution<> unif1(0, 1);
-    std::uniform_int_distribution<> unifn(0, n-1);
-
-    for (int t = 0; t < 10; ++t) // trials
-    {
-        // randomly fill bool vector
-        std::vector<bool> ind(n);
-        for (int j = 0; j < n; ++j)
-            ind[j] = unif1(rng);
-
-        // init tree from vector
-        fenwick_tree ft(ind);
-
-        check_ft_equal(ft, ind);
-
-        // pick random indices to decrease and check FT
-        for (int j = 0; j < 100; ++j)
-        {
-            int x = unifn(rng);
-            ind[x] = 0;
-            ft.try_decrease(x);
-            check_ft_equal(ft, ind);
-        }
-    }
-    */
-
     printf("Fenwick tree tests passed\n");
+
+    ft_delete(ft);
 }
 
 // Test PhiBlock values without base match a reference
@@ -804,6 +789,8 @@ void test_phi_block()
     check_phiyb(pb, phi12);
 
     // TODO: automated test
+    
+    phi_block_delete(pb);
 }
 
 
@@ -863,5 +850,5 @@ int main(int argc, char* argv[])
 
     printf("%ld\n", primecount());
 
-    // free globals on exit?
+    primecount_delete();
 }

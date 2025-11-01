@@ -1,9 +1,10 @@
 CC = gcc
-CCFLAGS = -Wall -Wextra -fopenmp
+CCFLAGS = -Wall -Wextra
 LDFLAGS = -lm
 
 # Target-specific variable values
-release: CCFLAGS += -O3
+# valgrind reports openmp as still reachable leak
+release: CCFLAGS += -O3 -fopenmp
 release: primecount
 
 debug: CCFLAGS += -Og -g -fsanitize=undefined
