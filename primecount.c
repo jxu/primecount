@@ -7,7 +7,7 @@
 
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
-#define CEIL_DIV(x,y) (x) / (y) + ((x) % (y) > 0)
+#define CEIL_DIV(x,y) (((x) + (y) - 1) / (y))
 
 
 typedef uint32_t* fenwick_tree; // light abstraction
