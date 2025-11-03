@@ -24,8 +24,8 @@ int64_t Q;         // phi_c table size, shouldn't be too large
 int64_t Z;         // X^(2/3) / alpha (approx)
 int64_t ISQRTX;    // floor(sqrt(X))
 int64_t IACBRTX;   // floor(alpha cbrt(X))
-int64_t a;         // pi(alpha cbrt(X))
-int64_t astar;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
+int64_t A;         // pi(alpha cbrt(X))
+int64_t ASTAR;     // p_a*^2 = alpha cbrt(X), a* = pi(sqrt(alpha cbrt X))
 int64_t BLOCKMIN;  // minimum block size (in bits)
 int64_t BLOCKMAX;  // maximum block size (in bits)
 int64_t K;         // max k for blocks
@@ -37,7 +37,7 @@ int64_t*    PRIMES;      // primes <= acbrtx
 int64_t*    PRIME_COUNT; // pi(x) over [1,acbrtx]
 int64_t*    PHI_C;       // phi(x,c) over [1,Q]
 bool*       F_C;         // f(x,c) = [pmin(x) > p_c], indicators for phi
-int64_t*    zks;         // z_k endpoints for interval [1,z]
+int64_t*    ZKS;         // z_k endpoints for interval [1,z]
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
 // customized to save memory by only operating over a bit array (0/1 input)
@@ -311,15 +311,15 @@ void primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockma
     size_t SIEVE_SIZE = IACBRTX + 200;
     sieve_mu_prime(SIEVE_SIZE);
 
-    a = PRIME_COUNT[IACBRTX];
-    printf("a = %ld\n", a);
+    A = PRIME_COUNT[IACBRTX];
+    printf("a = %ld\n", A);
 
     //assert(PRIMES.size() > (size_t)a + 1); // need p_{a+1}
 
-    astar = PRIME_COUNT[(int64_t)(sqrt(ALPHA) * pow(X, 1/6.))];
-    printf("a* = %ld\n", astar);
+    ASTAR = PRIME_COUNT[(int64_t)(sqrt(ALPHA) * pow(X, 1/6.))];
+    printf("a* = %ld\n", ASTAR);
 
-    C = MIN(astar, C);
+    C = MIN(ASTAR, C);
     printf("C = %ld\n", C);
 
     // precompute PHI_C tables
@@ -328,16 +328,16 @@ void primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockma
     // create z_k endpoints
     const size_t BSIZE = 1ULL << BLOCKMAX;
 
-    zks = calloc(MAX(2, Z / BLOCKMIN), sizeof(int64_t));
+    ZKS = calloc(MAX(2, Z / BLOCKMIN), sizeof(int64_t));
     K = 0;
-    zks[K++] = 1; // starting bound
-    printf("zks %ld ", zks[0]);
+    ZKS[K++] = 1; // starting bound
+    printf("ZKS %ld ", ZKS[0]);
 
-    int64_t zk;
+    int64_t zk = 1;
     for (int64_t i = BLOCKMIN; (i < BLOCKMAX); ++i)
     {
         zk = (1ULL << i) + 1;
-        zks[K++] = zk;
+        ZKS[K++] = zk;
         printf("%ld ", zk);
         if (zk > Z) break;
     
@@ -348,7 +348,7 @@ void primecount_new(uint64_t x, int64_t alpha, int64_t blockmin, int64_t blockma
         
         for (size_t i = 1 + (1ULL << BLOCKMAX); i <= Z + BSIZE; i += BSIZE)
         {
-            zks[K++] = i;
+            ZKS[K++] = i;
             printf("%ld ", i);
         }
     }
@@ -407,7 +407,7 @@ int64_t S2_iter(const int64_t b, const phi_block* block, int64_t* phi_defer)
     uint64_t zk = block->zk;
     int64_t defer = 0;
 
-    int64_t d = a; // fixed starting point
+    int64_t d = A; // fixed starting point
 
     // attempt to optimize starting d bound
     // pd <= x / zk1
@@ -504,7 +504,7 @@ int64_t P2_iter(const phi_block* block, int64_t* v, int64_t* phi_defer)
         if (y >= block->zk) break;
 
         ++v_defer;
-        P2 += sum_to(block, y) + a - 1;
+        P2 += sum_to(block, y) + A - 1;
         ++defer;
     }
 
@@ -527,21 +527,21 @@ int64_t primecount(void)
     int64_t S1 = 0;
     int64_t S2 = 0;
 
-    int64_t P2 = a * (a-1) / 2; // starting sum
-    int64_t v = a; // counts primes up to sqrt(x) 
+    int64_t P2 = A * (A-1) / 2; // starting sum
+    int64_t v = A; // counts primes up to sqrt(x) 
 
     // Init S2 vars
-    for (int64_t b = astar; b < a - 1; ++b)
+    for (int64_t b = ASTAR; b < A - 1; ++b)
     {
         int64_t pb1 = PRIMES[b+1];
 
         int64_t tb;
         // hope this is accurate
         if (cbrt(X) <= pb1)     tb = b + 2;
-        else if (pb1*pb1 <= Z)  tb = a + 1;
+        else if (pb1*pb1 <= Z)  tb = A + 1;
         else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1;
 
-        S2 += a - (tb - 1);
+        S2 += A - (tb - 1);
     }
 
     // block_sum[k][b] = phi(zk - 1, b) - phi(zk1 - 1, b)
@@ -551,13 +551,13 @@ int64_t primecount(void)
     // by indexing k first, consecutive k (for given b) should be far apart
     // to avoid false sharing (in theory)
     // ridiculous 2D indexing macros
-    #define IXA(i,j) ((i)*(a+1) + (j))
-    #define IXAS(i,j) ((i)*(astar+1) + (j))
+    #define IXA(i,j) ((i)*(A+1) + (j))
+    #define IXAS(i,j) ((i)*(ASTAR+1) + (j))
     
     // Only take KL-size batches at once to avoid excessive table space
     int64_t* block_sum      = calloc(IXA(KL,0), sizeof(int64_t));
     int64_t* phi_save       = calloc(IXA(KL,0), sizeof(int64_t));
-    int64_t* phi_save_prev  = calloc(a+1, sizeof(int64_t));
+    int64_t* phi_save_prev  = calloc(A+1, sizeof(int64_t));
 
     // deferred counts of phi_save from phi(y,b) calls
     int64_t* S1_defer       = calloc(IXAS(KL,0), sizeof(int64_t));
@@ -580,8 +580,8 @@ int64_t primecount(void)
         #pragma omp parallel for schedule(dynamic)
         for (int64_t k = k0; k < kmax; ++k)
         {
-            int64_t zk1 = zks[k-1];
-            int64_t zk = zks[k];
+            int64_t zk1 = ZKS[k-1];
+            int64_t zk = ZKS[k];
             assert(zk1 < zk);
 
             // Message may appear broken in multithreading
@@ -601,7 +601,7 @@ int64_t primecount(void)
             free(ind);
 
             // For each b...
-            for (int64_t b = C; b <= a; ++b)
+            for (int64_t b = C; b <= A; ++b)
             {
                 int64_t pb = PRIMES[b];
 
@@ -612,22 +612,22 @@ int64_t primecount(void)
                 // update saved block sum (k,b) for this block
                 block_sum[IXA(k-k0,b)] = sum_to(block, block->zk - 1);
 
-                // S1 leaves, b in [C, astar)
-                if ((int64_t)C <= b && b < astar)
+                // S1 leaves, b in [C, ASTAR)
+                if ((int64_t)C <= b && b < ASTAR)
                 {
                     #pragma omp atomic
                     S1 += S1_iter(b, block, &(S1_defer[IXAS(k-k0,b)]));
                 }
 
-                // S2 leaves, b in [astar, a-1)
-                else if (astar <= b && b < a - 1)
+                // S2 leaves, b in [ASTAR, a-1)
+                else if (ASTAR <= b && b < A - 1)
                 {
                     #pragma omp atomic
                     S2 += S2_iter(b, block, &(S2_defer[IXA(k-k0,b)]));
                 }
 
                 // phi2, after sieved out first a primes
-                else if (b == a)
+                else if (b == A)
                 {
                     #pragma omp atomic
                     P2 += P2_iter(block, &v, &(P2_defer[k-k0]));
@@ -644,7 +644,7 @@ int64_t primecount(void)
 
         for (int64_t k = k0; k < kmax; ++k)
         {
-            for (int64_t b = C; b <= a; ++b)
+            for (int64_t b = C; b <= A; ++b)
             {
                 // accumulate full phi(zk-1,b) from Bk and all previous
                 int64_t phi_prev = 
@@ -654,17 +654,17 @@ int64_t primecount(void)
 
                 phi_save[IXA(k-k0,b)] = phi_prev + block_sum[IXA(k-k0,b)];
 
-                if (b < astar)
+                if (b < ASTAR)
                     S1    += phi_prev * S1_defer[IXAS(k-k0,b)];
-                else if (b < a-1)
+                else if (b < A-1)
                     S2    += phi_prev * S2_defer[IXA(k-k0,b)];
-                else if (b == a)
+                else if (b == A)
                     P2    += phi_prev * P2_defer[k-k0];
             }
         }
 
         // save block_sum for next batch
-        for (size_t i = 0; i < (size_t)a+1; ++i)
+        for (size_t i = 0; i < (size_t)A+1; ++i)
             phi_save_prev[i] = phi_save[IXA(KL-1,i)];
     }
 
@@ -683,7 +683,7 @@ int64_t primecount(void)
 
     printf("S1 = %ld\nS2 = %ld\nP2 = %ld\n", S1, S2, P2);
 
-    return S0 + S1 + S2 + a - 1 - P2;
+    return S0 + S1 + S2 + A - 1 - P2;
 }
 
 void primecount_delete(void)
@@ -693,7 +693,7 @@ void primecount_delete(void)
     free(PRIME_COUNT);
     free(PHI_C);
     free(F_C);
-    free(zks);
+    free(ZKS);
 }
 
 // Basic tests
