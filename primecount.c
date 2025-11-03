@@ -508,7 +508,9 @@ int64_t P2_iter(const phi_block* block, int64_t* v, int64_t* phi_defer)
         ++defer;
     }
 
+    #pragma omp atomic
     *v += v_defer;
+
     *phi_defer = defer;
 
     free(aux);
@@ -520,19 +522,12 @@ int64_t primecount(void)
 {
     // Sum accumulators
     int64_t S0 = S0_iter();
-
     printf("S0 = %ld\n", S0);
 
-    // S1
     int64_t S1 = 0;
+    int64_t S2 = 0;
 
-    // S2
-    int64_t* S2 = calloc(a+1, sizeof *S2);
-    int64_t S2s = 0;
-
-    // Phi2
     int64_t P2 = a * (a-1) / 2; // starting sum
-    int64_t* vs = calloc(K + 1, sizeof *vs);
     int64_t v = a; // counts primes up to sqrt(x) 
 
     // Init S2 vars
@@ -546,7 +541,7 @@ int64_t primecount(void)
         else if (pb1*pb1 <= Z)  tb = a + 1;
         else                    tb = PRIME_COUNT[X / (pb1*pb1)] + 1;
 
-        S2[b] = a - (tb - 1);
+        S2 += a - (tb - 1);
     }
 
     // block_sum[k][b] = phi(zk - 1, b) - phi(zk1 - 1, b)
@@ -628,14 +623,14 @@ int64_t primecount(void)
                 else if (astar <= b && b < a - 1)
                 {
                     #pragma omp atomic
-                    S2[b] += S2_iter(b, block, &(S2_defer[IXA(k-k0,b)]));
+                    S2 += S2_iter(b, block, &(S2_defer[IXA(k-k0,b)]));
                 }
 
                 // phi2, after sieved out first a primes
                 else if (b == a)
                 {
                     #pragma omp atomic
-                    P2 += P2_iter(block, &(vs[k]), &(P2_defer[k-k0]));
+                    P2 += P2_iter(block, &v, &(P2_defer[k-k0]));
                 }
             }
 
@@ -662,11 +657,10 @@ int64_t primecount(void)
                 if (b < astar)
                     S1    += phi_prev * S1_defer[IXAS(k-k0,b)];
                 else if (b < a-1)
-                    S2[b] += phi_prev * S2_defer[IXA(k-k0,b)];
+                    S2    += phi_prev * S2_defer[IXA(k-k0,b)];
                 else if (b == a)
                     P2    += phi_prev * P2_defer[k-k0];
             }
-            v += vs[k];
         }
 
         // save block_sum for next batch
@@ -674,17 +668,12 @@ int64_t primecount(void)
             phi_save_prev[i] = phi_save[IXA(KL-1,i)];
     }
 
-    // Accumulate final results
-    for (int64_t b = 0; b <= a; ++b)
-        S2s += S2[b];
 
     // Finalize P2
     P2 -= v*(v-1)/2;
 
     printf("v = %ld\n", v);
 
-    free(S2);
-    free(vs);
     free(block_sum);
     free(phi_save);
     free(phi_save_prev);
@@ -692,9 +681,9 @@ int64_t primecount(void)
     free(S2_defer);
     free(P2_defer);
 
-    printf("S1 = %ld\nS2 = %ld\nP2 = %ld\n", S1, S2s, P2);
+    printf("S1 = %ld\nS2 = %ld\nP2 = %ld\n", S1, S2, P2);
 
-    return S0 + S1 + S2s + a - 1 - P2;
+    return S0 + S1 + S2 + a - 1 - P2;
 }
 
 void primecount_delete(void)
