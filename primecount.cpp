@@ -511,7 +511,6 @@ public:
         // Only take KL-size batches at once to avoid excessive table space
         vector<vector<u64>> block_sum(KL, vector<u64>(A+1, 0));
         auto phi_save = block_sum;
-        vector<u64> phi_save_prev(A+1, 0);
 
         // deferred counts of phi_save from phi(y,b) calls
         vector<vector<u64>> S1_defer(KL, vector<u64>(ASTAR+1, 0));
@@ -598,9 +597,8 @@ public:
                 for (u64 b = C; b <= A; ++b)
                 {
                     // accumulate full phi(zk-1,b) from Bk and all previous
-                    u64 phi_prev = (k == k0)
-                                   ? phi_save_prev[b]
-                                   : phi_save[k-k0-1][b];
+                    u64 k_prev = (k == k0) ? KL-1 : k-k0-1;
+                    u64 phi_prev = phi_save[k_prev][b];
 
                     phi_save[k-k0][b] = phi_prev + block_sum[k-k0][b];
 
@@ -612,9 +610,6 @@ public:
                         P2    += phi_prev * P2_defer[k-k0];
                 }
             }
-
-            // save block_sum for next batch
-            phi_save_prev = phi_save[KL-1];
         }
 
         // Finalize P2
