@@ -1,9 +1,9 @@
+#pragma once
 #include <vector>
 #include <iostream>
 #include <cmath>
 #include <cassert>
 #include <cstdint>
-#include <random>
 
 using namespace std; // who will stop me?
 
@@ -70,7 +70,7 @@ public:
 
 
 // ceil(x/y) for positive integers
-u64 ceil_div(u64 x, u64 y)
+inline u64 ceil_div(u64 x, u64 y)
 {
     return x / y + (x % y > 0);
 }
@@ -148,7 +148,7 @@ public:
 };
 
 // signum: returns -1, 0, or 1
-int sgn(i64 x)
+inline int sgn(i64 x)
 {
     return (x > 0) - (x < 0);
 }
@@ -156,7 +156,7 @@ int sgn(i64 x)
 
 // convenient pi upper bound when x is beyond iacbrtx table
 // (Rosser and Schoenfeld 1962)
-double pi_bound(u64 x)
+inline double pi_bound(u64 x)
 {
     if (x <= 1) return 1;
     return 1.25506 * x / log(x);
@@ -623,157 +623,3 @@ public:
     }
 };
 
-// TESTS
-// checks ft.sum_to(i) == sum v[0:i]
-void check_ft_equal(const fenwick_tree& ft, const vector<bool>& v)
-{
-    u32 s = 0;
-    for (size_t i = 0; i < v.size(); ++i)
-    {
-        s += v[i];
-        assert(ft.sum_to(i) == s);
-    }
-}
-
-void test_fenwick_tree()
-{
-    // example: fenwick tree over array
-    vector<bool> v1 = {1, 1, 0, 1, 1};
-    fenwick_tree ft(v1);
-    check_ft_equal(ft, v1);
-
-    v1[1] = 0;
-    ft.try_decrease(1);
-    check_ft_equal(ft, v1);
-
-    v1[1] = 0;
-    ft.try_decrease(1); // should not change
-    check_ft_equal(ft, v1);
-
-    v1[4] = 0;
-    ft.try_decrease(4);
-    check_ft_equal(ft, v1);
-
-    // randomized testing
-    mt19937 rng(1229);
-    const int n = 1000;
-    uniform_int_distribution<> unif1(0, 1);
-    uniform_int_distribution<> unifn(0, n-1);
-
-    for (int t = 0; t < 10; ++t) // trials
-    {
-        // randomly fill bool vector
-        vector<bool> ind(n);
-        for (int j = 0; j < n; ++j)
-            ind[j] = unif1(rng);
-
-        // init tree from vector
-        fenwick_tree ft(ind);
-
-        check_ft_equal(ft, ind);
-
-        // pick random indices to decrease and check FT
-        for (int j = 0; j < 100; ++j)
-        {
-            int x = unifn(rng);
-            ind[x] = 0;
-            ft.try_decrease(x);
-            check_ft_equal(ft, ind);
-        }
-    }
-
-    cout << "Fenwick tree tests passed" << endl;
-}
-
-// Test PhiBlock values without base match a reference
-void check_phiyb(const PhiBlock& pb, const vector<u64>& ref)
-{
-    for (u64 i = pb.zk1; i < pb.zk; ++i)
-    {
-        assert(pb.sum_to(i) == ref[i-pb.zk1]);
-    }
-}
-
-
-void test_phi_block()
-{
-    vector<bool> ind(25, 1);
-    PhiBlock pb(ind, 1, 51);
-    // by design, phi block already has b = 1, p_b = 2 sieved out
-    // sieved out evens, so remaining are 1,3,5,7,... = 1 mod 2
-    const vector<u64> phi11 =
-    {
-        1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,
-        11,11,12,12,13,13,14,14,15,15,16,16,17,17,18,18,19,19,20,20,
-        21,21,22,22,23,23,24,24,25,25
-    };
-
-    // sieved out by 3s, so remaining are 1, 5, 7, 11, ... = 1,5 mod 6
-    vector<u64> phi12 =
-    {
-        1,1,1,1,2,2,3,3,3,3,4,4,5,5,5,5,6,6,7,7,
-        7,7,8,8,9,9,9,9,10,10,11,11,11,11,12,12,13,13,13,13,
-        14,14,15,15,15,15,16,16,17,17
-    };
-
-    check_phiyb(pb, phi11);
-
-    // sieve out b = 2, p_b = 3
-    pb.sieve_out(3);
-    check_phiyb(pb, phi12);
-
-    // TODO: automated test
-}
-
-
-int main(int argc, char* argv[])
-{
-    // special test mode
-    if (argc == 1)
-    {
-        test_fenwick_tree();
-        test_phi_block();
-        cout << "All tests passed!" << endl;
-        return 0;
-    }
-
-
-    if (!(argc == 2 || argc == 5))
-    {
-        cerr << "Usage: ./primecount X [ALPHA BLOCKMIN BLOCKMAX]\n";
-        return 1;
-    }
-
-    // setup primecount tuning parameters to pass in
-
-    // read float like 1e12 from command line (may not be exact for > 2^53)
-    double Xf = atof(argv[1]);
-    if (Xf > (1ll << 53))
-        cout << "WARNING: atof may not be exact, " <<
-             "and you may need to change parameters for memory\n";
-    if (Xf > 1e19)
-        throw out_of_range("X too big!");
-
-    // convert double to int
-    u64 X = Xf;
-    u64 alpha = max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
-    u64 blockmin = 16;
-    u64 blockmax = 24;
-
-    if (argc == 5) // override defaults
-    {
-        alpha = atoi(argv[2]);
-        blockmin = atoi(argv[3]);
-        blockmax = atoi(argv[4]);
-    }
-
-    cout << "Computing for X = " << X << endl;
-    cout << "Alpha = " << alpha << endl;
-    cout << "BLOCKMIN = " << blockmin << endl;
-    cout << "BLOCKMAX = " << blockmax << endl;
-
-    // main class init
-    Primecount primecount(X, alpha, blockmin, blockmax);
-
-    cout << primecount.primecount() << endl;
-}
