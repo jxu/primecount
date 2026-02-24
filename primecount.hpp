@@ -5,8 +5,6 @@
 #include <cassert>
 #include <cstdint>
 
-using namespace std; // who will stop me?
-
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int64_t  i64;
@@ -19,11 +17,11 @@ class fenwick_tree
 {
 private:
     const u32 MSB_MASK = 1UL << 31;
-    vector<u32>   t;   // 0-indexed tree
+    std::vector<u32>   t;   // 0-indexed tree
 
 public:
     // init with input bool array
-    fenwick_tree(const vector<bool>& ind) :
+    fenwick_tree(const std::vector<bool>& ind) :
         t(ind.size(), 0)
     {
         assert(ind.size() < MSB_MASK);
@@ -99,7 +97,7 @@ public:
     fenwick_tree    phi_sum;   // data structure for efficient partial sums
 
     // construct new block without k or b explicitly
-    PhiBlock(const vector<bool>& ind, u64 zk1, u64 zk) :
+    PhiBlock(const std::vector<bool>& ind, u64 zk1, u64 zk) :
         zk1(zk1),
         zk(zk),
         bsize(zk - zk1),
@@ -136,7 +134,7 @@ public:
 
         // now only need to start at pb^2
         // (doesn't really help)
-        u64 j0 = max(pb*pb, pb * ceil_div(zk1, pb));
+        u64 j0 = std::max(pb*pb, pb * ceil_div(zk1, pb));
         if (j0 % 2 == 0)
             j0 += pb; // ensure odd
 
@@ -185,12 +183,12 @@ public:
 
 
     // precomputed tables
-    vector<i64>        MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
-    vector<u64>        PRIMES;      // primes <= acbrtx
-    vector<u64>        PRIME_COUNT; // pi(x) over [1,acbrtx]
-    vector<u64>        PHI_C;       // phi(x,c) over [1,Q]
-    vector<bool>       F_C;         // f(x,c) = [pmin(x) > p_c]
-    vector<u64>        zks;         // z_k endpoints for interval [1,z]
+    std::vector<i64>        MU_PMIN;     // mu(n) pmin(n) for [2,acbrtx]
+    std::vector<u64>        PRIMES;      // primes <= acbrtx
+    std::vector<u64>        PRIME_COUNT; // pi(x) over [1,acbrtx]
+    std::vector<u64>        PHI_C;       // phi(x,c) over [1,Q]
+    std::vector<bool>       F_C;         // f(x,c) = [pmin(x) > p_c]
+    std::vector<u64>        zks;         // z_k endpoints for interval [1,z]
 
     Primecount(u64 x, u64 alpha, u64 blockmin, u64 blockmax) :
         ALPHA(alpha),
@@ -204,15 +202,15 @@ public:
         BLOCKMAX(blockmax)
     {
         if (X < 10)
-            throw invalid_argument("Program not designed for tiny inputs");
+            throw std::invalid_argument("Program not designed for tiny inputs");
 
         // check alpha isn't set too large
         if (ALPHA > pow(X, 1/6.))
-            throw invalid_argument("Alpha set too large");
+            throw std::invalid_argument("Alpha set too large");
 
-        cout << "Z = " << Z << endl;
-        cout << "IACBRTX = " << IACBRTX << endl;
-        cout << "ISQRTX = " << ISQRTX << endl;
+        std::cout << "Z = " << Z << std::endl;
+        std::cout << "IACBRTX = " << IACBRTX << std::endl;
+        std::cout << "ISQRTX = " << ISQRTX << std::endl;
 
         // precompute PRIMES, PRIME_COUNT, MU_PMIN
         // Since p_{a+1} may be needed in S2, leave margin
@@ -220,15 +218,15 @@ public:
         sieve_mu_prime(SIEVE_SIZE);
 
         A = PRIME_COUNT[IACBRTX];
-        cout << "a = " << A << endl;
+        std::cout << "a = " << A << std::endl;
 
         assert(PRIMES.size() > (size_t)A + 1); // need p_{a+1}
 
         ASTAR = PRIME_COUNT[u64(sqrt(ALPHA) * pow(X, 1/6.))];
-        cout << "a* = " << ASTAR << endl;
+        std::cout << "a* = " << ASTAR << std::endl;
 
-        C = min(ASTAR, C);
-        cout << "C = " << C << endl;
+        C = std::min(ASTAR, C);
+        std::cout << "C = " << C << std::endl;
 
         // precompute PHI_C tables
         pre_phi_c();
@@ -244,7 +242,7 @@ public:
             zks.push_back(i);
 
         K = zks.size() - 1;
-        cout << "K = " << K << endl;
+        std::cout << "K = " << K << std::endl;
     }
 
     // precompute PRIMES, PRIME_COUNT, MU_PMIN with a standard sieve to acbrtx
@@ -323,7 +321,7 @@ public:
         u64 S0 = 0;
         for (size_t n = 1; n <= size_t(IACBRTX); ++n)
         {
-            if (u64(abs(MU_PMIN[n])) > PRIMES[C])
+            if (u64(std::abs(MU_PMIN[n])) > PRIMES[C])
             {
                 S0 += sgn(MU_PMIN[n]) * phi_yc(X / n);
             }
@@ -339,7 +337,7 @@ public:
         u64 pb1 = PRIMES[b+1];
         u64 defer = 0;
         // m decreasing, modified with fixed upper bound
-        u64 mb = min(IACBRTX, X / (phi_block.zk1 * pb1));
+        u64 mb = std::min(IACBRTX, X / (phi_block.zk1 * pb1));
 
         for (; mb * pb1 > IACBRTX; --mb)
         {
@@ -348,7 +346,7 @@ public:
             assert(y >= phi_block.zk1);
             if (y >= phi_block.zk) break;
 
-            if (u64(abs(MU_PMIN[mb])) > pb1)
+            if (u64(std::abs(MU_PMIN[mb])) > pb1)
             {
                 S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y);
                 defer -= sgn(MU_PMIN[mb]);
@@ -371,9 +369,9 @@ public:
 
         // attempt to optimize starting d bound
         // pd <= x / zk1
-        d = min(d, u64(pi_bound(X / (pb1 * zk1))));
+        d = std::min(d, u64(pi_bound(X / (pb1 * zk1))));
         // non-trivial leaves should satisfy pd <= max(x/pb1^2, pb1)
-        d = min(d, u64(pi_bound(X / (pb1 * pb1))));
+        d = std::min(d, u64(pi_bound(X / (pb1 * pb1))));
 
         for (; d > b + 1; --d)
         {
@@ -424,8 +422,8 @@ public:
         // maintain aux sieve, u = tracking pb starting at max, y = x / u
         // x/zk < u <= x/zk1
         // iacbrtx < u <= isqrtx
-        u64 u = min(ISQRTX, X / phi_block.zk1);
-        u64 w = max(IACBRTX, X / phi_block.zk) + 1;
+        u64 u = std::min(ISQRTX, X / phi_block.zk1);
+        u64 w = std::max(IACBRTX, X / phi_block.zk) + 1;
 
         if (u < w) return 0;
 
@@ -435,7 +433,7 @@ public:
         assert(u >= w);
 
         // sieve interval [w,u] fully, then count remaining primes
-        vector<bool> aux(u - w + 1, 1);
+        std::vector<bool> aux(u - w + 1, 1);
 
         for (size_t i = 1; ; ++i)
         {
@@ -445,7 +443,7 @@ public:
                 break;
 
             // only need to start marking multiples at p^2
-            u64 j0 = max(p*p, p * ceil_div(w, p));
+            u64 j0 = std::max(p*p, p * ceil_div(w, p));
             for (u64 j = j0; j <= u; j += p)
             {
                 aux[j - w] = 0;
@@ -485,7 +483,7 @@ public:
         u64 P2 = A * (A-1) / 2; // starting sum
         u64 v = A;
 
-        cout << "S0 = " << S0 << "\n";
+        std::cout << "S0 = " << S0 << "\n";
 
         // Init S2 vars
         for (u64 b = ASTAR; b < A - 1; ++b)
@@ -509,22 +507,22 @@ public:
         // to avoid false sharing (in theory)
 
         // Only take KL-size batches at once to avoid excessive table space
-        vector<vector<u64>> block_sum(KL, vector<u64>(A+1, 0));
+        std::vector<std::vector<u64>> block_sum(KL, std::vector<u64>(A+1, 0));
         auto phi_save = block_sum;
 
         // deferred counts of phi_save from phi(y,b) calls
-        vector<vector<u64>> S1_defer(KL, vector<u64>(ASTAR+1, 0));
+        std::vector<std::vector<u64>> S1_defer(KL, std::vector<u64>(ASTAR+1, 0));
         auto S2_defer = block_sum;
-        vector<u64> P2_defer(KL, 0);
+        std::vector<u64> P2_defer(KL, 0);
 
         // Main segmented sieve: blocks Bk = [z_{k-1}, z_k)
         // k batch [k0, k0 + KL)
         // indexing into KL-size table uses k - k0
         for (u64 k0 = 1; k0 <= K; k0 += KL)
         {
-            cout << "Start new K batch at " << k0 << endl;
+            std::cout << "Start new K batch at " << k0 << std::endl;
 
-            u64 kmax = min(k0 + KL, K + 1); // exclusive
+            u64 kmax = std::min(k0 + KL, K + 1); // exclusive
 
             // Dynamic as the block computations are heavily imbalanced
             // for low k
@@ -537,15 +535,15 @@ public:
                 // not actually critical, but lock printing makes it nicer
                 #pragma omp critical
                 {
-                    cout << "Start block " << k
-                         << hex << " [0x" << zk1 << ",0x" << zk << ")"
-                         << dec << endl;
+                    std::cout << "Start block " << k
+                         << std::hex << " [0x" << zk1 << ",0x" << zk << ")"
+                         << std::dec << std::endl;
                 }
 
                 // construct new phi_block with p1, ..., pc already sieved out
                 // using phi_yc precomputed (Appendix I)
                 // actually not faster than starting at b = 2
-                vector<bool> ind((zk-zk1)/2);
+                std::vector<bool> ind((zk-zk1)/2);
 
                 for (size_t i = 0; i < ind.size(); ++i)
                     ind[i] = F_C[(zk1 + 2*i) % Q];
@@ -587,7 +585,7 @@ public:
                     }
                 }
 
-                cout << "End block " << k << endl;
+                std::cout << "End block " << k << std::endl;
             } // end parallel, implicit barrier
 
             // sum up all deferred phi(y,b) bases sequentially
@@ -615,9 +613,9 @@ public:
         // Finalize P2
         P2 -= v * (v - 1) /2;
 
-        cout << "S1 = " << S1 << endl;
-        cout << "S2 = " << S2 << endl;
-        cout << "P2 = " << P2 << endl;
+        std::cout << "S1 = " << S1 << std::endl;
+        std::cout << "S2 = " << S2 << std::endl;
+        std::cout << "P2 = " << P2 << std::endl;
 
         return S0 + S1 + S2 + A - 1 - P2;
     }
