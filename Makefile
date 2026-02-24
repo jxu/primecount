@@ -8,10 +8,10 @@ release: primecount tests
 debug: CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG -fsanitize=signed-integer-overflow
 debug: primecount tests
 
-primecount: main.cpp primecount.hpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+primecount: main.cpp primecount.hpp fenwick_tree.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
-tests: tests.cpp primecount.hpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+tests: tests.cpp primecount.hpp fenwick_tree.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 .PHONY: primecount tests
