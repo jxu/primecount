@@ -3,10 +3,7 @@
 #include <cassert>
 #include <cstdint>
 
-// Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
-// customized to save memory by only operating over a bit array (0/1 input)
-// Fits exactly in a power of 2 space!
-// Using the MSB for the underlying bool array isn't faster but it's bit fun
+
 class fenwick_tree
 {
 private:

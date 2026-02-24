@@ -1,5 +1,10 @@
 #include "fenwick_tree.hpp"
 
+// Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
+// customized to save memory by only operating over a bit array (0/1 input)
+// Fits exactly in a power of 2 space!
+// Using the MSB for the underlying bool array isn't faster but it's bit fun
+
 fenwick_tree::fenwick_tree(const std::vector<bool> &ind) : t(ind.size(), 0)
 {
     assert(ind.size() < MSB_MASK);
