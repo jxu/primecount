@@ -20,10 +20,10 @@ int main(int argc, char* argv[])
         throw std::out_of_range("X too big!");
 
     // convert double to int
-    u64 X = Xf;
-    u64 alpha = std::max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
-    u64 blockmin = 16;
-    u64 blockmax = 24;
+    uint64_t X = Xf;
+    uint64_t alpha = std::max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
+    uint64_t blockmin = 16;
+    uint64_t blockmax = 24;
 
     if (argc == 5) // override defaults
     {
