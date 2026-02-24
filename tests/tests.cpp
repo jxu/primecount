@@ -1,5 +1,5 @@
 #include <random>
-#include "primecount.hpp"
+#include "../src/primecount.hpp"
 
 // checks ft.sum_to(i) == sum v[0:i]
 void check_ft_equal(const fenwick_tree& ft, const std::vector<bool>& v)
