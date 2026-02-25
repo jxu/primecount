@@ -5,7 +5,7 @@
 // Fits exactly in a power of 2 space!
 // Using the MSB for the underlying bool array isn't faster but it's bit fun
 
-fenwick_tree::fenwick_tree(const std::vector<bool> &ind) : t(ind.size(), 0)
+FenwickTree::FenwickTree(const std::vector<bool> &ind) : t(ind.size(), 0)
 {
     assert(ind.size() < MSB_MASK);
 
@@ -23,7 +23,7 @@ fenwick_tree::fenwick_tree(const std::vector<bool> &ind) : t(ind.size(), 0)
 }
 
 // sum values a[0..r] (0-based)
-uint32_t fenwick_tree::sum_to(uint32_t r) const
+uint32_t FenwickTree::sum_to(uint32_t r) const
 {
     assert(size_t(r) < t.size());
 
@@ -36,7 +36,7 @@ uint32_t fenwick_tree::sum_to(uint32_t r) const
 
 // will only decrease if underlying ind[i] = 1
 // 0-based input
-void fenwick_tree::try_decrease(uint32_t i)
+void FenwickTree::try_decrease(uint32_t i)
 {
     assert(i < t.size());
 

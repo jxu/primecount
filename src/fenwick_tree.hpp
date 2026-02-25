@@ -4,7 +4,7 @@
 #include <cstdint>
 
 
-class fenwick_tree
+class FenwickTree
 {
 private:
     const uint32_t MSB_MASK = 1UL << 31;
@@ -12,7 +12,7 @@ private:
 
 public:
     // init with input bool array
-    fenwick_tree(const std::vector<bool>& ind);
+    FenwickTree(const std::vector<bool>& ind);
 
     // sum values a[0..r] (0-based)
     uint32_t sum_to(uint32_t r) const;

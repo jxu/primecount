@@ -19,7 +19,7 @@ public:
     size_t      bsize;     // logical block size
     size_t      psize;     // physical block size
 
-    fenwick_tree    phi_sum;   // data structure for efficient partial sums
+    FenwickTree    phi_sum;   // data structure for efficient partial sums
 
     // construct new block without k or b explicitly
     PhiBlock(const std::vector<bool>& ind, uint64_t zk1, uint64_t zk) :
