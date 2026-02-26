@@ -1,3 +1,4 @@
+#include <cassert>
 #include "fenwick_tree.hpp"
 
 // Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
@@ -25,7 +26,7 @@ FenwickTree::FenwickTree(const std::vector<bool> &ind) : t(ind.size(), 0)
 // sum values a[0..r] (0-based)
 uint32_t FenwickTree::sum_to(uint32_t r) const
 {
-    assert(size_t(r) < t.size());
+    assert(r < t.size());
 
     uint32_t s = 0;
     // r can go "negative" here in the weird 0-indexed tree

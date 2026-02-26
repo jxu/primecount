@@ -69,16 +69,16 @@ public:
     }
 
     // contribution of ordinary leaves to phi(x,a)
-    uint64_t S0_iter();
+    uint64_t S0_iter() const;
 
     // Algorithm 1
-    uint64_t S1_iter(uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer);
+    uint64_t S1_iter(uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer) const;
 
     // Algorithm 2, reworked from leaves formulas
-    uint64_t S2_iter(uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer);
+    uint64_t S2_iter(uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer) const;
 
     // Algorithm 3: computation of phi2(x,a)
-    uint64_t P2_iter(const PhiBlock& phi_block, uint64_t& v, uint64_t& phi_defer);
+    uint64_t P2_iter(const PhiBlock& phi_block, uint64_t& v, uint64_t& phi_defer) const;
 
     // Top-level computation
     uint64_t primecount();

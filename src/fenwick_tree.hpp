@@ -1,8 +1,6 @@
 #pragma once
 #include <vector>
-#include <cassert>
 #include <cstdint>
-
 
 class FenwickTree
 {
@@ -12,7 +10,7 @@ private:
 
 public:
     // init with input bool array
-    FenwickTree(const std::vector<bool>& ind);
+    explicit FenwickTree(const std::vector<bool>& ind);
 
     // sum values a[0..r] (0-based)
     uint32_t sum_to(uint32_t r) const;

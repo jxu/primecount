@@ -1,7 +1,5 @@
 #include "primecount.hpp"
 
-
-
 Primecount::Primecount(uint64_t x, uint64_t alpha, uint64_t blockmin, uint64_t blockmax) :
     ALPHA(alpha),
     X(x),
@@ -32,9 +30,9 @@ Primecount::Primecount(uint64_t x, uint64_t alpha, uint64_t blockmin, uint64_t b
     A = PRIME_COUNT[IACBRTX];
     std::cout << "a = " << A << std::endl;
 
-    assert(PRIMES.size() > (size_t)A + 1); // need p_{a+1}
+    assert(PRIMES.size() > A + 1); // need p_{a+1}
 
-    ASTAR = PRIME_COUNT[uint64_t(sqrt(ALPHA) * pow(X, 1/6.))];
+    ASTAR = PRIME_COUNT[static_cast<uint64_t>(sqrt(ALPHA) * pow(X, 1 / 6.))];
     std::cout << "a* = " << ASTAR << std::endl;
 
     C = std::min(ASTAR, C);
@@ -79,11 +77,11 @@ void Primecount::sieve_mu_prime(size_t SIEVE_SIZE)
     }
 
     // complete MU_PMIN, compute PRIMES and PRIME_COUNT
-    for (int64_t j = 2; j <= int64_t(SIEVE_SIZE); ++j)
+    for (int64_t j = 2; j <= static_cast<int64_t>(SIEVE_SIZE); ++j)
     {
         if (MU_PMIN[j] == -j)   // prime
         {
-            PRIMES.push_back(uint64_t(j));
+            PRIMES.push_back(static_cast<uint64_t>(j));
             ++pc;
 
             // mark multiples of p^2 as 0 for mu
@@ -118,12 +116,12 @@ void Primecount::pre_phi_c()
         PHI_C[i] = F_C[i] + PHI_C[i-1];
 }
 
-uint64_t Primecount::S0_iter(void)
+uint64_t Primecount::S0_iter() const
 {
     uint64_t S0 = 0;
-    for (size_t n = 1; n <= size_t(IACBRTX); ++n)
+    for (size_t n = 1; n <= static_cast<size_t>(IACBRTX); ++n)
     {
-        if (uint64_t(std::abs(MU_PMIN[n])) > PRIMES[C])
+        if (static_cast<uint64_t>(std::abs(MU_PMIN[n])) > PRIMES[C])
         {
             S0 += sgn(MU_PMIN[n]) * phi_yc(X / n);
         }
@@ -132,7 +130,7 @@ uint64_t Primecount::S0_iter(void)
     return S0;
 }
 
-uint64_t Primecount::S1_iter(const uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer)
+uint64_t Primecount::S1_iter(const uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer) const
 {
     uint64_t S1 = 0;
     uint64_t pb1 = PRIMES[b+1];
@@ -147,7 +145,7 @@ uint64_t Primecount::S1_iter(const uint64_t b, const PhiBlock& phi_block, uint64
         assert(y >= phi_block.zk1);
         if (y >= phi_block.zk) break;
 
-        if (uint64_t(std::abs(MU_PMIN[mb])) > pb1)
+        if (static_cast<uint64_t>(std::abs(MU_PMIN[mb])) > pb1)
         {
             S1 -= sgn(MU_PMIN[mb]) * phi_block.sum_to(y);
             defer -= sgn(MU_PMIN[mb]);
@@ -157,7 +155,7 @@ uint64_t Primecount::S1_iter(const uint64_t b, const PhiBlock& phi_block, uint64
     return S1;
 }
 
-uint64_t Primecount::S2_iter(const uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer)
+uint64_t Primecount::S2_iter(const uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer) const
 {
     uint64_t S2b = 0;
     uint64_t pb1 = PRIMES[b+1];
@@ -169,9 +167,9 @@ uint64_t Primecount::S2_iter(const uint64_t b, const PhiBlock& phi_block, uint64
 
     // attempt to optimize starting d bound
     // pd <= x / zk1
-    d = std::min(d, uint64_t(pi_bound(X / (pb1 * zk1))));
+    d = std::min(d, static_cast<uint64_t>(pi_bound(X / (pb1 * zk1))));
     // non-trivial leaves should satisfy pd <= max(x/pb1^2, pb1)
-    d = std::min(d, uint64_t(pi_bound(X / (pb1 * pb1))));
+    d = std::min(d, static_cast<uint64_t>(pi_bound(X / (pb1 * pb1))));
 
     for (; d > b + 1; --d)
     {
@@ -212,7 +210,7 @@ uint64_t Primecount::S2_iter(const uint64_t b, const PhiBlock& phi_block, uint64
 
 // Modification to original algorithm: use aux sieve [u,w] limited to
 // y's range in [zk1,zk) rather than acbrtx size
-uint64_t Primecount::P2_iter(const PhiBlock& phi_block, uint64_t& v, uint64_t& phi_defer)
+uint64_t Primecount::P2_iter(const PhiBlock& phi_block, uint64_t& v, uint64_t& phi_defer) const
 {
     uint64_t P2 = 0;
     uint64_t defer = 0;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include "fenwick_tree.hpp"
 
 // ceil(x/y) for positive integers
