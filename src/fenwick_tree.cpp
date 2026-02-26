@@ -1,6 +1,12 @@
+#include <cassert>
 #include "fenwick_tree.hpp"
 
-fenwick_tree::fenwick_tree(const std::vector<bool> &ind) : t(ind.size(), 0)
+// Credit: cp-algorithms (Jakob Kogler), e-maxx.ru (Maxim Ivanov)
+// customized to save memory by only operating over a bit array (0/1 input)
+// Fits exactly in a power of 2 space!
+// Using the MSB for the underlying bool array isn't faster but it's bit fun
+
+FenwickTree::FenwickTree(const std::vector<bool> &ind) : t(ind.size(), 0)
 {
     assert(ind.size() < MSB_MASK);
 
@@ -18,9 +24,9 @@ fenwick_tree::fenwick_tree(const std::vector<bool> &ind) : t(ind.size(), 0)
 }
 
 // sum values a[0..r] (0-based)
-uint32_t fenwick_tree::sum_to(uint32_t r) const
+uint32_t FenwickTree::sum_to(uint32_t r) const
 {
-    assert(size_t(r) < t.size());
+    assert(r < t.size());
 
     uint32_t s = 0;
     // r can go "negative" here in the weird 0-indexed tree
@@ -31,7 +37,7 @@ uint32_t fenwick_tree::sum_to(uint32_t r) const
 
 // will only decrease if underlying ind[i] = 1
 // 0-based input
-void fenwick_tree::try_decrease(uint32_t i)
+void FenwickTree::try_decrease(uint32_t i)
 {
     assert(i < t.size());
 

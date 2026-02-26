@@ -1,17 +1,18 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -fopenmp
 
+all: release debug
+
 # Target-specific variable values
 release: CXXFLAGS += -O3
-release: primecount tests
+release: primecount run_tests
 
 debug: CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG -fsanitize=signed-integer-overflow
-debug: primecount tests
+debug: primecount run_tests
 
-primecount: main.cpp primecount.hpp fenwick_tree.cpp
+primecount: src/main.cpp src/primecount.cpp src/fenwick_tree.cpp src/phi_block.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-tests: tests.cpp primecount.hpp fenwick_tree.cpp
+run_tests: tests/tests.cpp src/primecount.cpp src/fenwick_tree.cpp src/phi_block.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-.PHONY: primecount tests

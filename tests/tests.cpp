@@ -1,8 +1,8 @@
 #include <random>
-#include "primecount.hpp"
+#include "../src/primecount.hpp"
 
 // checks ft.sum_to(i) == sum v[0:i]
-void check_ft_equal(const fenwick_tree& ft, const std::vector<bool>& v)
+void check_ft_equal(const FenwickTree& ft, const std::vector<bool>& v)
 {
     uint32_t s = 0;
     for (size_t i = 0; i < v.size(); ++i)
@@ -16,7 +16,7 @@ void test_fenwick_tree()
 {
     // example: fenwick tree over array
     std::vector<bool> v1 = {1, 1, 0, 1, 1};
-    fenwick_tree ft(v1);
+    FenwickTree ft(v1);
     check_ft_equal(ft, v1);
 
     v1[1] = 0;
@@ -45,7 +45,7 @@ void test_fenwick_tree()
             ind[j] = unif1(rng);
 
         // init tree from vector
-        fenwick_tree ft(ind);
+        FenwickTree ft(ind);
 
         check_ft_equal(ft, ind);
 
