@@ -5,11 +5,10 @@
 #include <cassert>
 #include <cstdint>
 
-#include "fenwick_tree.hpp"
 #include "phi_block.hpp"
 
 // signum: returns -1, 0, or 1
-inline int sgn(int64_t x)
+inline int sgn(const int64_t x)
 {
     return (x > 0) - (x < 0);
 }
@@ -17,10 +16,11 @@ inline int sgn(int64_t x)
 
 // convenient pi upper bound when x is beyond iacbrtx table
 // (Rosser and Schoenfeld 1962)
-inline double pi_bound(uint64_t x)
+inline double pi_bound(const uint64_t x)
 {
     if (x <= 1) return 1;
-    return 1.25506 * x / log(x);
+    const auto xd = static_cast<double>(x);
+    return 1.25506 * xd / log(xd);
 }
 
 
@@ -63,24 +63,24 @@ public:
 
     // phi(y,c) can be found quickly from the table
     // y can be 10^19 so needs to be unsigned
-    uint64_t phi_yc(uint64_t y)
+    uint64_t phi_yc(const uint64_t y) const
     {
         return (y / Q) * PHI_C[Q] + PHI_C[y % Q];
     }
 
     // contribution of ordinary leaves to phi(x,a)
-    uint64_t S0_iter(void);
+    uint64_t S0_iter();
 
     // Algorithm 1
-    uint64_t S1_iter(const uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer);
+    uint64_t S1_iter(uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer);
 
     // Algorithm 2, reworked from leaves formulas
-    uint64_t S2_iter(const uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer);
+    uint64_t S2_iter(uint64_t b, const PhiBlock& phi_block, uint64_t& phi_defer);
 
     // Algorithm 3: computation of phi2(x,a)
     uint64_t P2_iter(const PhiBlock& phi_block, uint64_t& v, uint64_t& phi_defer);
 
     // Top-level computation
-    uint64_t primecount(void);
+    uint64_t primecount();
 };
 
