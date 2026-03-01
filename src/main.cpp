@@ -1,3 +1,5 @@
+#include <string>
+
 #include "primecount.hpp"
 
 
@@ -12,7 +14,7 @@ int main(int argc, char* argv[])
     // setup primecount tuning parameters to pass in
 
     // read float like 1e12 from command line (may not be exact for > 2^53)
-    double Xf = atof(argv[1]);
+    const double Xf = std::stod(argv[1]);
     if (Xf > (1ll << 53))
         std::cout << "WARNING: atof may not be exact, " <<
              "and you may need to change parameters for memory\n";
@@ -20,16 +22,17 @@ int main(int argc, char* argv[])
         throw std::out_of_range("X too big!");
 
     // convert double to int
-    uint64_t X = Xf;
-    uint64_t alpha = std::max(1., pow(log10(X), 3) / 150); // empirical O(log^3 x)
+    const auto X = static_cast<uint64_t>(Xf);
+    // empirical O(log^3 x)
+    uint64_t alpha = static_cast <uint64_t>(std::max(1., pow(std::log10(X), 3) / 150));
     uint64_t blockmin = 16;
     uint64_t blockmax = 24;
 
     if (argc == 5) // override defaults
     {
-        alpha = atoi(argv[2]);
-        blockmin = atoi(argv[3]);
-        blockmax = atoi(argv[4]);
+        alpha = std::stoi(argv[2]);
+        blockmin = std::stoi(argv[3]);
+        blockmax = std::stoi(argv[4]);
     }
 
     std::cout << "Computing for X = " << X << std::endl;
