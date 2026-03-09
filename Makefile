@@ -1,47 +1,53 @@
-CXX 	 := g++
-CXXFLAGS := -Wall -Wextra -std=c++17 -fopenmp
+CXX 	    := g++
+CXXFLAGS    := -Wall -Wextra -std=c++17 -fopenmp
+LDFLAGS     := -fopenmp
 SRC_DIR		:= src
 TEST_DIR	:= tests
 BUILD_DIR	:= build
 
-# Build specific flags
-DEBUG_FLAGS   := -Og -g -D_GLIBCXX_DEBUG -fsanitize=signed-integer-overflow
-RELEASE_FLAGS := -O3
+# Build mode: Debug or Release specific flags
+MODE ?= Release
+
+ifeq ($(MODE),Release)
+	CXXFLAGS += -O3
+else
+	CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG -fsanitize=signed-integer-overflow
+	LDFLAGS += -fsanitize=signed-integer-overflow
+endif
 
 # Source files
-SRC  := src/phi_block.cpp src/primecount.cpp
-TEST := $(wildcard $(TEST_DIR)/*.cpp)
+#SRC  := src/phi_block.cpp src/primecount.cpp
+SRC := $(wildcard $(SRC_DIR)/*.cpp)
 
 # Output binaries
-BIN_DEBUG   := $(BUILD_DIR)/primecount_debug
-BIN_RELEASE := $(BUILD_DIR)/primecount
+BIN_TARGET  := $(BUILD_DIR)/primecount
 BIN_TESTS   := $(BUILD_DIR)/tests
 
+# Object files go into build/
+OBJ := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC))
+
 # default target
-all: release debug tests
+all: $(BIN_TARGET)
 
-# Release
-release: $(BIN_RELEASE)
+$(BIN_TARGET): $(OBJ) $(SRC_DIR)/main.cpp
+	$(CXX) $(LDFLAGS) $(OBJ) -o $@
 
-$(BIN_RELEASE): $(SRC) $(SRC_DIR)/main.cpp
+# Compile rule for object files
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(RELEASE_FLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Debug
-debug: $(BIN_DEBUG)
-
-$(BIN_DEBUG): $(SRC) $(SRC_DIR)/main.cpp
-	mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(DEBUG_FLAGS) $^ -o $@
 
 # Tests (debug mode)
+TEST_SRC := $(wildcard tests/*.cpp)
+TEST_OBJ := $(patsubst tests/%.cpp,$(BUILD_DIR)/tests_%.o,$(TEST_SRC))
+
 tests: $(BIN_TESTS)
 
-$(BIN_TESTS): $(SRC) $(TEST)
-	mkdir -p $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(DEBUG_FLAGS) $^ -o $@
+$(BIN_TESTS): $(TEST_OBJ) $(OBJ)
+	$(CXX) $(TEST_OBJ) $(OBJ) -o tests
 
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all release debug tests clean
+.PHONY: all tests clean
