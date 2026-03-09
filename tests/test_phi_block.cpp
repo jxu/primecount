@@ -1,4 +1,5 @@
 #include <random>
+#include "doctest.h"
 #include "../src/primecount.hpp"
 
 // checks ft.sum_to(i) == sum v[0:i]
@@ -102,10 +103,3 @@ void test_phi_block()
     // TODO: automated test
 }
 
-int main()
-{
-    test_fenwick_tree();
-    test_phi_block();
-    std::cout << "All tests passed!" << std::endl;
-    return 0;
-}
