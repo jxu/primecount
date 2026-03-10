@@ -1,6 +1,7 @@
 #include <random>
+#include <iostream>
 #include "doctest.h"
-#include "../src/primecount.hpp"
+#include "phi_block.hpp"
 
 // checks ft.sum_to(i) == sum v[0:i]
 void check_ft_equal(const FenwickTree& ft, const std::vector<bool>& v)

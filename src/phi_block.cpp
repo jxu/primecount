@@ -6,7 +6,7 @@
 // Fits exactly in a power of 2 space!
 // Using the MSB for the underlying bool array isn't faster but it's bit fun
 
-FenwickTree::FenwickTree(const std::vector<bool> &ind) : t(ind.size(), 0)
+FenwickTree::FenwickTree(const std::vector<bool>& ind) : t(ind.size(), 0)
 {
     assert(ind.size() < MSB_MASK);
 
